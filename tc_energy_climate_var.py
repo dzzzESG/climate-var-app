@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v3.2
+TC Energy — Climate Risk Stress Testing Terminal  v3.1
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -95,10 +95,27 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
 .mbox { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
         padding: .75rem 1rem; font-size: .78rem; color: #374151; margin-top: .5rem; }
 
-/* Tabs */
-.stTabs [data-baseweb="tab-list"] { background: #E8EDF2; border-radius: 9px; padding: 4px; gap: 3px; }
-.stTabs [data-baseweb="tab"] { border-radius: 6px; padding: 7px 18px; font-size: .85rem; font-weight: 500; color: #64748B; }
-.stTabs [aria-selected="true"] { background: white !important; color: #0D2137 !important; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+/* Tabs — fill full width equally */
+.stTabs [data-baseweb="tab-list"] {
+  background: #E8EDF2; border-radius: 9px; padding: 4px; gap: 3px;
+  display: flex !important;
+}
+.stTabs [data-baseweb="tab"] {
+  border-radius: 6px; padding: 8px 4px; font-size: .84rem; font-weight: 500;
+  color: #64748B; flex: 1 1 0 !important; text-align: center !important;
+  min-width: 0 !important; white-space: nowrap;
+}
+.stTabs [aria-selected="true"] {
+  background: white !important; color: #0D2137 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+
+/* WACC number input — black text */
+section[data-testid="stSidebar"] input[type="number"] {
+  color: #0D2137 !important; background: #F8FAFC !important;
+  border: 1px solid #CBD5E1 !important; border-radius: 6px !important;
+  font-weight: 600 !important;
+}
 
 /* Expander */
 div[data-testid="stExpander"] { border: 1px solid #E2E8F0 !important; border-radius: 9px !important; }
@@ -214,38 +231,68 @@ ASSETS = {
     },
 }
 
-# Canada Federal Carbon Price (CAD/t CO2e) — actual + projected
+# ── Canada Federal Carbon Price (CAD/t CO2e) — actual legislated schedule ────
+# Source: Environment & Climate Change Canada, Federal Carbon Pollution Pricing System
 CARBON_SCHEDULE = {
     2024: 80, 2025: 95, 2026: 110, 2027: 125,
     2028: 140, 2029: 155, 2030: 170
 }
 
-# Scenario definitions
+# ── NGFS Phase 4 carbon price proxies (USD/t, converted to CAD ≈ ×1.38) ─────
+# Source: NGFS Phase 4 Scenarios (2023), IEA World Energy Outlook 2024
+# Net Zero 2050: ~USD $250/t by 2050 → CAD ~$345/t
+# Delayed Transition: ~USD $130/t by 2050 → CAD ~$180/t
+# Current Policies: follows Canada federal floor only, ~CAD $170/t plateau post-2030
+
+# ── IPCC AR6 physical risk multipliers by scenario ────────────────────────────
+# Source: IPCC AR6 WG1 Ch.11-12, WG2 Ch.13-14
+# RCP 4.5 ≈ SSP2-4.5: ~2°C warming — moderate hazard intensification
+# RCP 8.5 ≈ SSP5-8.5: ~4°C warming — extreme hazard intensification
+# Damage rates reflect Canadian energy infrastructure exposure (Swiss Re NatCat, AIR Worldwide)
+
+# Scenario definitions — keys must match ASSETS["Phys"] keys
 SCENARIOS = {
-    "RCP 4.5 — Moderate (High Transition)": {
+    # ── IPCC RCP pathways ─────────────────────────────────────────────────────
+    "RCP 4.5 — Moderate Warming (~2°C)": {
         "key": "RCP45", "high_tax": True, "high_phys": False,
-        "cp_end": 250, "cp_label": "High carbon price path (to CAD $250/t by 2050)",
+        "cp_end": 250,   # CAD $/t by 2050 (aggressive federal + provincial policy)
         "color": "#1D4ED8",
+        "warming": "~2.0°C by 2100",
+        "ipcc_ref": "SSP2-4.5 · IPCC AR6 WG1",
+        "risk_focus": "Transition risk dominant — carbon price escalation compresses EBITDA",
     },
-    "RCP 8.5 — High Emission (Extreme Physical)": {
+    "RCP 8.5 — High Emission (~4°C)": {
         "key": "RCP85", "high_tax": False, "high_phys": True,
-        "cp_end": 130, "cp_label": "Low carbon price path (slow policy, to CAD $130/t)",
+        "cp_end": 130,   # CAD $/t — slow policy, stays near federal schedule
         "color": "#DC2626",
+        "warming": "~4.0°C by 2100",
+        "ipcc_ref": "SSP5-8.5 · IPCC AR6 WG1",
+        "risk_focus": "Physical risk dominant — extreme weather causes asset impairment",
     },
+    # ── NGFS Phase 4 transition scenarios ────────────────────────────────────
     "NGFS — Net Zero 2050": {
         "key": "NZ", "high_tax": True, "high_phys": False,
-        "cp_end": 300, "cp_label": "Aggressive carbon pricing (to CAD $300/t by 2050)",
+        "cp_end": 345,   # CAD $/t (~USD $250 × 1.38 FX) · NGFS Phase 4 disorderly
         "color": "#059669",
+        "warming": "~1.5°C by 2100",
+        "ipcc_ref": "NGFS Phase 4 · Net Zero 2050",
+        "risk_focus": "Highest transition risk — rapid decarbonisation, stranded asset risk",
     },
     "NGFS — Delayed Transition": {
         "key": "DT", "high_tax": False, "high_phys": True,
-        "cp_end": 180, "cp_label": "Delayed policy ramp (to CAD $180/t by 2050)",
+        "cp_end": 180,   # CAD $/t (~USD $130 × 1.38) · delayed policy ramp post-2030
         "color": "#D97706",
+        "warming": "~1.8°C by 2100",
+        "ipcc_ref": "NGFS Phase 4 · Delayed Transition",
+        "risk_focus": "Dual risk — moderate physical damage + late carbon cost surge",
     },
     "NGFS — Current Policies": {
         "key": "CP", "high_tax": False, "high_phys": True,
-        "cp_end": 130, "cp_label": "BAU — minimal policy change",
+        "cp_end": 170,   # CAD $/t — plateaus at 2030 federal target, no further increase
         "color": "#6B7280",
+        "warming": "~3.0°C by 2100",
+        "ipcc_ref": "NGFS Phase 4 · Current Policies",
+        "risk_focus": "Extreme physical risk — business-as-usual emissions, no meaningful abatement",
     },
 }
 
@@ -928,46 +975,139 @@ with tab4:
                               paper_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig_gv, use_container_width=True)
 
-    # Cross-scenario total loss comparison
-    st.markdown('<div class="sec" style="font-size:.85rem;margin-top:.5rem">Total Loss by Scenario</div>',
+    # ── NGFS Three-Scenario Comparison Panel ─────────────────────────────────
+    st.markdown('<div class="sec" style="font-size:.88rem;margin-top:.8rem">NGFS Scenario Comparison — All Three Transition Pathways</div>',
+                unsafe_allow_html=True)
+
+    # NGFS scenario cards with real parameters
+    ngfs_keys  = ["NGFS — Net Zero 2050", "NGFS — Delayed Transition", "NGFS — Current Policies"]
+    ngfs_short = ["Net Zero 2050", "Delayed Transition", "Current Policies"]
+    ngfs_cols  = ["#059669", "#D97706", "#6B7280"]
+    ngfs_warm  = ["~1.5°C", "~1.8°C", "~3.0°C"]
+    ngfs_bgs   = ["#F0FDF4", "#FFFBEB", "#F8FAFC"]
+    ngfs_bord  = ["#86EFAC", "#FDE68A", "#E2E8F0"]
+
+    nc1, nc2, nc3 = st.columns(3)
+    for col, nk, ns, nc, nw, nb, nbr in zip(
+        [nc1, nc2, nc3], ngfs_keys, ngfs_short, ngfs_cols, ngfs_warm, ngfs_bgs, ngfs_bord
+    ):
+        sc_d = SCENARIOS[nk]
+        sm   = 1.4 if sc_d["high_tax"] else 1.0
+        cp_s = np.array([CARBON_SCHEDULE.get(y, 80 + (sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
+        ct_s = float((A["Emissions_Mt"] * cp_s).sum())
+        sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm*frac
+        ma_s = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
+        pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
+        tot_s = (ct_s + sl_s + ma_s + pl_s) * (1 - net_pass_thru)
+        cv_s  = tot_s / book_M * 100
+        is_active = nk == scenario_name
+        outline = f"2px solid {nc}" if is_active else f"1px solid {nbr}"
+        active_badge = ' <span style="font-size:.65rem;background:' + nc + ';color:white;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:5px">Active</span>' if is_active else ""
+        col.markdown(f"""
+        <div style="background:{nb};border:{outline};border-radius:10px;padding:1rem 1.1rem;">
+          <div style="font-size:.72rem;font-weight:700;color:{nc};text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">
+            {ns}{active_badge}
+          </div>
+          <div style="font-size:.68rem;color:#64748B;margin-bottom:.6rem">{sc_d['ipcc_ref']} &nbsp;·&nbsp; {nw}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.6rem">
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
+              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Climate VaR</div>
+              <div style="font-size:1.05rem;font-weight:700;color:#DC2626">-{cv_s:.1f}%</div>
+            </div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
+              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Net Loss</div>
+              <div style="font-size:1.05rem;font-weight:700;color:#0D2137">CAD {tot_s:.0f}M</div>
+            </div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
+              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Transition</div>
+              <div style="font-size:.95rem;font-weight:700;color:#1D4ED8">CAD {(ct_s+sl_s+ma_s)*(1-net_pass_thru):.0f}M</div>
+            </div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
+              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Physical</div>
+              <div style="font-size:.95rem;font-weight:700;color:#DC2626">CAD {pl_s*(1-net_pass_thru):.0f}M</div>
+            </div>
+          </div>
+          <div style="font-size:.69rem;color:#64748B;line-height:1.5">{sc_d['risk_focus']}</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # NGFS side-by-side waterfall subplots
+    ngfs_fig = make_subplots(
+        rows=1, cols=3,
+        subplot_titles=ngfs_short,
+        shared_yaxes=True,
+    )
+    for i, (nk, nc) in enumerate(zip(ngfs_keys, ngfs_cols), 1):
+        sc_d = SCENARIOS[nk]
+        sm   = 1.4 if sc_d["high_tax"] else 1.0
+        cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
+        ct_s = float((A["Emissions_Mt"]*cp_s).sum()) * (1-net_pass_thru)
+        sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm*frac * (1-net_pass_thru)
+        ma_s = (A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0) * (1-net_pass_thru)
+        pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac * (1-net_pass_thru)
+        sv   = max(book_M - ct_s - sl_s - ma_s - pl_s, 0)
+        ngfs_fig.add_trace(go.Waterfall(
+            orientation="v",
+            measure=["absolute","relative","relative","relative","relative","total"],
+            x=["Book\nValue","Carbon\nTax","Stranded\nCapital","Market\nAdj.","Physical\nDamage","Stress\nValue"],
+            y=[book_M, -ct_s, -sl_s, -ma_s, -pl_s, sv],
+            text=[f"${v:.0f}" for v in [book_M,-ct_s,-sl_s,-ma_s,-pl_s,sv]],
+            textposition="outside", textfont=dict(size=8, color="#374151"),
+            decreasing=dict(marker_color="#EF4444"),
+            increasing=dict(marker_color="#22C55E"),
+            totals=dict(marker_color=nc),
+            connector=dict(line=dict(color="#CBD5E1", width=1, dash="dot")),
+            showlegend=False,
+        ), row=1, col=i)
+
+    ngfs_fig.update_layout(
+        height=380, template="plotly_white",
+        margin=dict(t=40, b=20, l=10, r=10),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    )
+    ngfs_fig.update_yaxes(title_text="CAD $M", tickfont=dict(color="#374151"), row=1, col=1)
+    ngfs_fig.update_xaxes(tickfont=dict(size=8, color="#374151"))
+    st.plotly_chart(ngfs_fig, use_container_width=True)
+
+    # All 5 scenarios stacked bar (RCP + NGFS together)
+    st.markdown('<div class="sec" style="font-size:.85rem;margin-top:.3rem">Total Net Loss — All Scenarios</div>',
                 unsafe_allow_html=True)
     sc_losses = []
     for sc_n, sc_d in SCENARIOS.items():
         ht = sc_d["high_tax"]
         sm = 1.4 if ht else 1.0
-        cp_s = np.array([
-            CARBON_SCHEDULE.get(y, 80 + (sc_d["cp_end"]-80)*(y-2024)/26)
-            for y in years
-        ])
-        ct_s  = float((A["Emissions_Mt"] * cp_s).sum())
+        cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
+        ct_s  = float((A["Emissions_Mt"]*cp_s).sum())
         sl_s  = A["Value_B"]*1000*A["Stranded_F"]*sm*frac
         ma_s  = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
         pl_s  = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
-        tot_s = (ct_s + sl_s + ma_s + pl_s) * (1 - net_pass_thru)
-        sc_losses.append({"Scenario": sc_n.split(" — ")[0], "Total": tot_s,
+        tot_s = (ct_s+sl_s+ma_s+pl_s)*(1-net_pass_thru)
+        sc_losses.append({"Scenario": sc_n.split(" — ")[0],
                            "Transition": (ct_s+sl_s+ma_s)*(1-net_pass_thru),
                            "Physical": pl_s*(1-net_pass_thru),
-                           "Active": sc_n == scenario_name})
+                           "Total": tot_s, "Active": sc_n==scenario_name,
+                           "Color": sc_d["color"]})
 
     sc_df = pd.DataFrame(sc_losses).sort_values("Total", ascending=True)
     fig_sc2 = go.Figure()
     fig_sc2.add_trace(go.Bar(
-        y=sc_df["Scenario"], x=sc_df["Transition"],
-        orientation="h", name="Transition Risk",
-        marker_color=[SC["color"] if r else "#93C5FD" for r in sc_df["Active"]],
+        y=sc_df["Scenario"], x=sc_df["Transition"], orientation="h",
+        name="Transition Risk",
+        marker_color=[c if a else "#93C5FD" for c, a in zip(sc_df["Color"], sc_df["Active"])],
     ))
     fig_sc2.add_trace(go.Bar(
-        y=sc_df["Scenario"], x=sc_df["Physical"],
-        orientation="h", name="Physical Risk",
-        marker_color=[SC["color"] if r else "#FCA5A5" for r in sc_df["Active"]],
-        opacity=0.65,
+        y=sc_df["Scenario"], x=sc_df["Physical"], orientation="h",
+        name="Physical Risk",
+        marker_color=[c if a else "#FCA5A5" for c, a in zip(sc_df["Color"], sc_df["Active"])],
+        opacity=0.6,
     ))
     fig_sc2.update_layout(
-        height=280, template="plotly_white", barmode="stack",
+        height=260, template="plotly_white", barmode="stack",
         xaxis=dict(title="Net Loss (CAD $M)", tickfont=dict(color="#374151")),
         yaxis=dict(tickfont=dict(size=9, color="#374151")),
-        legend=dict(font=dict(size=10, color="#374151"), orientation="h", y=-0.2),
-        margin=dict(t=10, b=50, l=10, r=10),
+        legend=dict(font=dict(size=10, color="#374151"), orientation="h", y=-0.22),
+        margin=dict(t=10, b=55, l=10, r=10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
     st.plotly_chart(fig_sc2, use_container_width=True)
@@ -980,38 +1120,235 @@ with tab5:
     st.markdown('<div class="sec">Climate Risk Audit and Advisory Report</div>',
                 unsafe_allow_html=True)
 
-    dl_col, _ = st.columns([2, 8])
+    dl_col, _ = st.columns([3, 7])
     with dl_col:
-        report_txt = "\n".join([
-            "TC Energy — Climate Risk Stress Test Report",
-            "=" * 52,
-            f"Date:            {date.today().strftime('%B %d, %Y')}",
-            f"Asset:           {selected}",
-            f"Scenario:        {scenario_name}",
-            f"Horizon:         2024 to {end_year} ({duration} years)",
-            f"Baseline Value:  CAD {A['Value_B']}B",
-            f"Scope 1 (asset): {A['Emissions_Mt']} Mt CO2e/yr",
-            "-" * 52,
-            f"Climate VaR:     {cvar_pct:.2f}%",
-            f"Total Net Loss:  CAD {total_loss:.1f}M",
-            f"Primary Driver:  {primary_driver}",
-            f"Risk Level:      {risk_lvl}",
-            "-" * 52,
-            f"Carbon Tax:      CAD {cum_carbon_tax:.1f}M (gross)",
-            f"Stranded Asset:  CAD {stranded_loss:.1f}M",
-            f"Physical Damage: CAD {phys_loss_gross:.1f}M (gross)",
-            f"Pass-Through:    {pass_thru}%",
-            f"Market Cap:      CAD {MKT['mktcap_bn']:.1f}B (live)",
-            f"FX Rate:         1 USD = {FX:.4f} CAD",
-            "=" * 52,
-            "Data: TC Energy 2024 Report on Sustainability, ESG Data Sheet,",
-            "      Annual Report 2023, Q3 2024 MD&A. TCFD/IFRS S2 aligned.",
-        ])
-        st.download_button(
-            "Download Report (.txt)", data=report_txt,
-            file_name=f"TRP_ClimateAudit_{selected[:6].replace(' ', '_')}_{date.today()}.txt",
-            mime="text/plain", use_container_width=True,
-        )
+        # Generate PDF using reportlab
+        def build_pdf():
+            try:
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import cm
+                from reportlab.lib import colors
+                from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                                 Table, TableStyle, HRFlowable)
+                from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+                import io
+
+                buf = io.BytesIO()
+                doc = SimpleDocTemplate(buf, pagesize=A4,
+                                        leftMargin=2.2*cm, rightMargin=2.2*cm,
+                                        topMargin=2*cm, bottomMargin=2*cm)
+                navy   = colors.HexColor("#0D2137")
+                red    = colors.HexColor("#DC2626")
+                amber  = colors.HexColor("#D97706")
+                green  = colors.HexColor("#16A34A")
+                grey   = colors.HexColor("#64748B")
+                lgrey  = colors.HexColor("#F3F4F6")
+                risk_c = {"High": red, "Moderate": amber, "Low": green}[risk_lvl]
+
+                styles = getSampleStyleSheet()
+                H1 = ParagraphStyle("H1", fontName="Helvetica-Bold", fontSize=16,
+                                    textColor=navy, spaceAfter=4, alignment=TA_CENTER)
+                H2 = ParagraphStyle("H2", fontName="Helvetica-Bold", fontSize=11,
+                                    textColor=navy, spaceBefore=14, spaceAfter=4,
+                                    borderPadding=(0,0,2,0))
+                Body = ParagraphStyle("Body", fontName="Helvetica", fontSize=9,
+                                      leading=14, textColor=colors.HexColor("#1F2937"),
+                                      spaceAfter=6, alignment=TA_JUSTIFY)
+                SmCap = ParagraphStyle("SmCap", fontName="Helvetica-Bold", fontSize=7.5,
+                                       textColor=grey, spaceAfter=2)
+                Sub  = ParagraphStyle("Sub", fontName="Helvetica", fontSize=8,
+                                      textColor=grey, alignment=TA_CENTER)
+                Bullet = ParagraphStyle("Bullet", fontName="Helvetica", fontSize=9,
+                                        leading=14, textColor=colors.HexColor("#1F2937"),
+                                        leftIndent=14, spaceAfter=5)
+
+                elems = []
+
+                # ── Header ────────────────────────────────────────────────────
+                elems.append(Paragraph("CLIMATE RISK AUDIT AND ADVISORY REPORT", H1))
+                elems.append(Paragraph("TC Energy Corporation (TRP.TO) — Private and Confidential", Sub))
+                elems.append(Spacer(1, 6))
+                elems.append(HRFlowable(width="100%", thickness=2, color=navy))
+                elems.append(Spacer(1, 10))
+
+                # ── Meta table ────────────────────────────────────────────────
+                meta_data = [
+                    ["Date of Assessment", date.today().strftime("%B %d, %Y"),
+                     "Stress Horizon", f"2024 to {end_year} ({duration} yrs)"],
+                    ["Asset", selected[:32], "Climate Pathway", scenario_name.split(" — ")[0]],
+                    ["Classification", A["Type"], "Physical Hazard", hazard],
+                    ["Baseline Valuation", f"CAD {A['Value_B']}B", "Scope 1 Emissions", f"{A['Emissions_Mt']} Mt CO2e/yr"],
+                    ["Applied WACC", f"{wacc*100:.1f}%", "FX Rate", f"1 USD = {FX:.4f} CAD"],
+                ]
+                meta_tbl = Table(meta_data, colWidths=[3.5*cm, 5.5*cm, 3.5*cm, 5.5*cm])
+                meta_tbl.setStyle(TableStyle([
+                    ("FONTNAME",  (0,0), (-1,-1), "Helvetica"),
+                    ("FONTNAME",  (0,0), (0,-1),  "Helvetica-Bold"),
+                    ("FONTNAME",  (2,0), (2,-1),  "Helvetica-Bold"),
+                    ("FONTSIZE",  (0,0), (-1,-1), 8),
+                    ("TEXTCOLOR", (0,0), (0,-1),  grey),
+                    ("TEXTCOLOR", (2,0), (2,-1),  grey),
+                    ("TEXTCOLOR", (1,0), (1,-1),  navy),
+                    ("TEXTCOLOR", (3,0), (3,-1),  navy),
+                    ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, lgrey]),
+                    ("GRID", (0,0), (-1,-1), 0.3, colors.HexColor("#E2E8F0")),
+                    ("PADDING", (0,0), (-1,-1), 5),
+                ]))
+                elems.append(meta_tbl)
+                elems.append(Spacer(1, 10))
+
+                # ── Section 1 ─────────────────────────────────────────────────
+                elems.append(HRFlowable(width="100%", thickness=0.5, color=navy))
+                elems.append(Paragraph("1. Executive Summary", H2))
+                elems.append(Paragraph(
+                    f"Under the <b>{scenario_name.split(' — ')[0]}</b> climate pathway, the <b>{selected}</b> "
+                    f"asset demonstrates a <b>{risk_lvl.lower()} sensitivity</b> to integrated climate-related "
+                    f"financial factors over the {duration}-year assessment window. "
+                    f"The aggregated Climate Value-at-Risk (VaR) is calculated at <b>{abs(cvar_pct):.2f}%</b>, "
+                    f"representing a total projected NPV impairment of <b>CAD {total_loss:.1f} Million</b> "
+                    f"against the baseline valuation of CAD {A['Value_B']} Billion, after applying a "
+                    f"regulated tariff pass-through rate of {pass_thru}%. "
+                    f"The primary financial risk catalyst is identified as <b>{primary_driver}</b>.",
+                    Body))
+
+                # ── Section 2 ─────────────────────────────────────────────────
+                elems.append(HRFlowable(width="100%", thickness=0.5, color=navy))
+                elems.append(Paragraph("2. Quantified Risk Attribution", H2))
+                attr_data = [
+                    ["Component", "Driver", "Gross Loss", "Net Loss", "% of Book"],
+                    ["Carbon Tax Liability", f"{A['Emissions_Mt']} Mt × carbon price path",
+                     f"CAD {cum_carbon_tax:.1f}M", f"CAD {cum_carbon_tax*(1-net_pass_thru):.1f}M",
+                     f"{cum_carbon_tax*(1-net_pass_thru)/book_M*100:.2f}%"],
+                    ["Stranded Asset Loss", f"Obsolescence under {SC['key']}",
+                     f"CAD {stranded_loss:.1f}M", f"CAD {stranded_loss*(1-net_pass_thru):.1f}M",
+                     f"{stranded_loss*(1-net_pass_thru)/book_M*100:.2f}%"],
+                    ["Physical Asset Damage", f"{hazard} ({damage_rate*100:.2f}% rate)",
+                     f"CAD {phys_loss_gross:.1f}M", f"CAD {phys_loss_net:.1f}M",
+                     f"{phys_pct:.2f}%"],
+                    ["Market Adjustment", "Pipeline market discount (4% of book)",
+                     f"CAD {mkt_adj:.1f}M", f"CAD {mkt_adj*(1-net_pass_thru):.1f}M",
+                     f"{mkt_adj*(1-net_pass_thru)/book_M*100:.2f}%"],
+                    ["TOTAL IMPAIRMENT", "",
+                     f"CAD {int(total_loss/(1-net_pass_thru+0.0001))}M",
+                     f"CAD {total_loss:.1f}M", f"{abs(cvar_pct):.2f}%"],
+                ]
+                attr_tbl = Table(attr_data, colWidths=[4*cm, 4.5*cm, 2.8*cm, 2.8*cm, 2.4*cm])
+                attr_tbl.setStyle(TableStyle([
+                    ("FONTNAME",  (0,0), (-1,0),  "Helvetica-Bold"),
+                    ("FONTNAME",  (0,1), (-1,-2), "Helvetica"),
+                    ("FONTNAME",  (0,-1),(-1,-1), "Helvetica-Bold"),
+                    ("FONTSIZE",  (0,0), (-1,-1), 8),
+                    ("BACKGROUND",(0,0), (-1,0),  navy),
+                    ("TEXTCOLOR", (0,0), (-1,0),  colors.white),
+                    ("BACKGROUND",(0,-1),(-1,-1), lgrey),
+                    ("ROWBACKGROUNDS",(0,1),(-1,-2), [colors.white, lgrey]),
+                    ("ALIGN",     (2,0), (-1,-1), "RIGHT"),
+                    ("GRID",      (0,0), (-1,-1), 0.3, colors.HexColor("#E2E8F0")),
+                    ("PADDING",   (0,0), (-1,-1), 5),
+                    ("TEXTCOLOR", (2,-1),(4,-1),  red),
+                ]))
+                elems.append(attr_tbl)
+                elems.append(Spacer(1, 10))
+
+                # ── Section 3 ─────────────────────────────────────────────────
+                elems.append(HRFlowable(width="100%", thickness=0.5, color=navy))
+                elems.append(Paragraph("3. Strategic Management Recommendations", H2))
+                elems.append(Paragraph(
+                    f"Diagnostic analytics identify <b>{primary_driver}</b> as the dominant value "
+                    "erosion catalyst. Management is advised to prioritise:", Body))
+
+                if primary_driver == "Transition Risk":
+                    recs = [
+                        f"<b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the {A['Emissions_Mt']} Mt CO2e/yr emission baseline. TC Energy's 30% GHG intensity reduction target by 2030 requires ~5.8%/yr compound reduction; compressor electrification and LDAR programs are the primary levers.",
+                        f"<b>Tariff Pass-Through Review:</b> Evaluate recovery of carbon compliance costs through regulated shipper tariffs. NEB/FERC-regulated pipelines currently recover ~{int(A['PassThru']*100)}% of incremental costs; renegotiation ahead of the 2030 $170/t milestone will protect EBITDA.",
+                        f"<b>Depreciation and Asset Life Review:</b> Reassess economic useful life under the {scenario_name.split(' — ')[0]} pathway for assets with stranding factors above 15%. Accelerated depreciation provisions may be warranted.",
+                    ]
+                else:
+                    recs = [
+                        f"<b>Asset Hardening:</b> Increase capital expenditure for structural defenses against {hazard} at {selected}. IPCC AR6 projects significant intensification of this hazard class in the asset's geographic region.",
+                        "<b>Insurance and Risk Transfer:</b> Reassess catastrophic loss coverage limits, benchmarking against updated Munich Re / Swiss Re NatCat energy sector loss models for Canadian and Mexican infrastructure.",
+                        "<b>Emergency Response:</b> Update location-specific emergency response and business continuity plans to minimise throughput downtime during extreme weather events.",
+                    ]
+                for rec in recs:
+                    elems.append(Paragraph(f"• &nbsp;{rec}", Bullet))
+
+                # ── Section 4 ─────────────────────────────────────────────────
+                elems.append(HRFlowable(width="100%", thickness=0.5, color=navy))
+                elems.append(Paragraph("4. Risk Summary", H2))
+                sum_data = [
+                    ["Dimension", "Assessment"],
+                    ["Overall Risk Level", risk_lvl],
+                    ["Climate VaR", f"{abs(cvar_pct):.2f}%"],
+                    ["Primary Driver", primary_driver],
+                    ["Physical Hazard", hazard],
+                    ["Pass-Through Rate", f"{pass_thru}%"],
+                    ["Stress-Adjusted Value", f"CAD {int(max(stress_val_M,0))}M (from CAD {int(book_M)}M)"],
+                    ["NGFS / IPCC Reference", SC.get("ipcc_ref","—")],
+                    ["Warming Trajectory", SC.get("warming","—")],
+                    ["TC Energy Market Cap", f"CAD {MKT['mktcap_bn']:.1f}B (live)"],
+                ]
+                sum_tbl = Table(sum_data, colWidths=[6*cm, 10.5*cm])
+                sum_tbl.setStyle(TableStyle([
+                    ("FONTNAME",  (0,0), (-1,0),  "Helvetica-Bold"),
+                    ("FONTNAME",  (0,1), (0,-1),  "Helvetica-Bold"),
+                    ("FONTNAME",  (1,1), (1,-1),  "Helvetica"),
+                    ("FONTSIZE",  (0,0), (-1,-1), 8.5),
+                    ("BACKGROUND",(0,0), (-1,0),  navy),
+                    ("TEXTCOLOR", (0,0), (-1,0),  colors.white),
+                    ("TEXTCOLOR", (0,1), (0,-1),  grey),
+                    ("ROWBACKGROUNDS",(0,1),(-1,-1), [colors.white, lgrey]),
+                    ("GRID",      (0,0), (-1,-1), 0.3, colors.HexColor("#E2E8F0")),
+                    ("PADDING",   (0,0), (-1,-1), 5),
+                    ("TEXTCOLOR", (1,2), (1,2),   red),  # VaR row
+                ]))
+                elems.append(sum_tbl)
+                elems.append(Spacer(1, 14))
+
+                # ── Footer ────────────────────────────────────────────────────
+                elems.append(HRFlowable(width="100%", thickness=0.5,
+                                         color=colors.HexColor("#D1D5DB")))
+                elems.append(Spacer(1, 4))
+                footer_txt = (
+                    f"<b>Auditor Statement:</b> This stress test is aligned with TCFD and IFRS S2 "
+                    f"Climate-related Disclosures. Data sourced from TC Energy 2024 Report on "
+                    f"Sustainability, ESG Data Sheet, Annual Report 2023, and Q3 2024 MD&A. Physical "
+                    f"damage coefficients calibrated against Swiss Re NatCat benchmarks and IPCC AR6 "
+                    f"WG2 regional projections. Scenario carbon prices reference NGFS Phase 4 (2023) "
+                    f"and Canada's Federal Carbon Pricing schedule. "
+                    f"Live market data via yfinance ({MKT['ts']}). WACC: {wacc*100:.1f}%. "
+                    f"Not intended for direct investment purposes."
+                )
+                elems.append(Paragraph(footer_txt, ParagraphStyle(
+                    "Ftr", fontName="Helvetica", fontSize=7, textColor=grey,
+                    leading=10, alignment=TA_JUSTIFY)))
+
+                doc.build(elems)
+                buf.seek(0)
+                return buf.read()
+
+            except ImportError:
+                return None
+
+        pdf_bytes = build_pdf()
+        if pdf_bytes:
+            st.download_button(
+                "Download Report (PDF)",
+                data=pdf_bytes,
+                file_name=f"TRP_ClimateAudit_{selected[:8].replace(' ','_')}_{date.today()}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        else:
+            st.info("Install `reportlab` for PDF export: `pip install reportlab`")
+            fallback_txt = "\n".join([
+                "TC Energy Climate Risk Report", "="*52,
+                f"Asset: {selected}", f"Scenario: {scenario_name}",
+                f"Climate VaR: {cvar_pct:.2f}%", f"Total Loss: CAD {total_loss:.1f}M",
+            ])
+            st.download_button("Download Report (.txt)", data=fallback_txt,
+                file_name=f"TRP_ClimateAudit_{date.today()}.txt", mime="text/plain",
+                use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
