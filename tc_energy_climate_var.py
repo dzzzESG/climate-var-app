@@ -985,24 +985,24 @@ with tab5:
         report_txt = "\n".join([
             "TC Energy — Climate Risk Stress Test Report",
             "=" * 52,
-            f"Date:            {date.today().strftime('%B %d, %Y')}",
-            f"Asset:           {selected}",
-            f"Scenario:        {scenario_name}",
-            f"Horizon:         2024 to {end_year} ({duration} years)",
-            f"Baseline Value:  CAD {A['Value_B']}B",
-            f"Scope 1 (asset): {A['Emissions_Mt']} Mt CO2e/yr",
+            f"Date:             {date.today().strftime('%B %d, %Y')}",
+            f"Asset:            {selected}",
+            f"Scenario:         {scenario_name}",
+            f"Horizon:          2024 to {end_year} ({duration} years)",
+            f"Baseline Value:   CAD {A['Value_B']}B",
+            f"Scope 1 (asset):  {A['Emissions_Mt']} Mt CO2e/yr",
             "-" * 52,
-            f"Climate VaR:     {cvar_pct:.2f}%",
-            f"Total Net Loss:  CAD {total_loss:.1f}M",
-            f"Primary Driver:  {primary_driver}",
-            f"Risk Level:      {risk_lvl}",
+            f"Climate VaR:      {cvar_pct:.2f}%",
+            f"Total Net Loss:   CAD {total_loss:.1f}M",
+            f"Primary Driver:   {primary_driver}",
+            f"Risk Level:       {risk_lvl}",
             "-" * 52,
-            f"Carbon Tax:      CAD {cum_carbon_tax:.1f}M (gross)",
-            f"Stranded Asset:  CAD {stranded_loss:.1f}M",
-            f"Physical Damage: CAD {phys_loss_gross:.1f}M (gross)",
-            f"Pass-Through:    {pass_thru}%",
-            f"Market Cap:      CAD {MKT['mktcap_bn']:.1f}B (live)",
-            f"FX Rate:         1 USD = {FX:.4f} CAD",
+            f"Carbon Tax:       CAD {cum_carbon_tax:.1f}M (gross)",
+            f"Stranded Asset:   CAD {stranded_loss:.1f}M",
+            f"Physical Damage:  CAD {phys_loss_gross:.1f}M (gross)",
+            f"Pass-Through:     {pass_thru}%",
+            f"Market Cap:       CAD {MKT['mktcap_bn']:.1f}B (live)",
+            f"FX Rate:          1 USD = {FX:.4f} CAD",
             "=" * 52,
             "Data: TC Energy 2024 Report on Sustainability, ESG Data Sheet,",
             "      Annual Report 2023, Q3 2024 MD&A. TCFD/IFRS S2 aligned.",
@@ -1015,47 +1015,45 @@ with tab5:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Dynamic strategy
+    # Dynamic strategy - Note the flush-left alignment to prevent markdown code blocks
     if primary_driver == "Transition Risk":
-        strat = f"""
-        <li style="margin-bottom:10px">
-          <b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the
-          {A['Emissions_Mt']} Mt CO2e per-year emission baseline.
-          TC Energy's 2030 GHG intensity reduction target of 30% requires a compound
-          reduction rate of ~5.8%/yr; enhanced compressor electrification and LDAR
-          programs are the primary abatement levers.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Tariff Pass-Through Review:</b> Evaluate the capacity to pass carbon
-          compliance costs through regulated shipper tariffs. TC Energy's NEB/FERC-regulated
-          pipelines currently recover ~{A['PassThru']*100:.0f}% of incremental compliance costs.
-          Renegotiating contracts ahead of the 2030 $170/t milestone will protect EBITDA margins.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Depreciation and Asset Life Review:</b> Reassess economic useful life of capital
-          assets under the <b>{scenario_name}</b> pathway, particularly for assets with stranding
-          factors above 15%. Accelerated depreciation provisions may be warranted for
-          assets with residual exposure to fossil fuel demand risk.
-        </li>"""
+        strat = f"""<li style="margin-bottom:10px">
+<b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the
+{A['Emissions_Mt']} Mt CO2e per-year emission baseline.
+TC Energy's 2030 GHG intensity reduction target of 30% requires a compound
+reduction rate of ~5.8%/yr; enhanced compressor electrification and LDAR
+programs are the primary abatement levers.
+</li>
+<li style="margin-bottom:10px">
+<b>Tariff Pass-Through Review:</b> Evaluate the capacity to pass carbon
+compliance costs through regulated shipper tariffs. TC Energy's NEB/FERC-regulated
+pipelines currently recover ~{A['PassThru']*100:.0f}% of incremental compliance costs.
+Renegotiating contracts ahead of the 2030 $170/t milestone will protect EBITDA margins.
+</li>
+<li style="margin-bottom:10px">
+<b>Depreciation and Asset Life Review:</b> Reassess economic useful life of capital
+assets under the <b>{scenario_name}</b> pathway, particularly for assets with stranding
+factors above 15%. Accelerated depreciation provisions may be warranted for
+assets with residual exposure to fossil fuel demand risk.
+</li>"""
     else:
-        strat = f"""
-        <li style="margin-bottom:10px">
-          <b>Asset Hardening and Resilience Investment:</b> Increase capital expenditure for
-          structural defenses against <b>{hazard}</b> at {selected}.
-          IPCC AR6 projects significant intensification of this hazard class in the
-          asset's geographic region under {SC['key']}.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Insurance and Risk Transfer:</b> Reassess catastrophic loss insurance coverage
-          limits, particularly for assets in TC Energy's Northern Canada and Mexico exposure
-          zones. Benchmark against updated Munich Re / Swiss Re NatCat energy sector loss models.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Emergency Response and Business Continuity:</b> Update location-specific
-          emergency response plans to minimize throughput downtime and regulatory exposure
-          during extreme weather events, consistent with TC Energy's operational safety
-          management system commitments.
-        </li>"""
+        strat = f"""<li style="margin-bottom:10px">
+<b>Asset Hardening and Resilience Investment:</b> Increase capital expenditure for
+structural defenses against <b>{hazard}</b> at {selected}.
+IPCC AR6 projects significant intensification of this hazard class in the
+asset's geographic region under {SC['key']}.
+</li>
+<li style="margin-bottom:10px">
+<b>Insurance and Risk Transfer:</b> Reassess catastrophic loss insurance coverage
+limits, particularly for assets in TC Energy's Northern Canada and Mexico exposure
+zones. Benchmark against updated Munich Re / Swiss Re NatCat energy sector loss models.
+</li>
+<li style="margin-bottom:10px">
+<b>Emergency Response and Business Continuity:</b> Update location-specific
+emergency response plans to minimize throughput downtime and regulatory exposure
+during extreme weather events, consistent with TC Energy's operational safety
+management system commitments.
+</li>"""
 
     html = f"""
     <div class="rpt">
@@ -1197,8 +1195,8 @@ with tab5:
           <th style="padding:7px 11px;text-align:left;color:#374151">Dimension</th>
           <th style="padding:7px 11px;text-align:left;color:#374151">Assessment</th>
         </tr>
-        {''.join(f"""<tr><td style="padding:6px 11px;border-bottom:1px solid #E5E7EB">{k}</td>
-        <td style="padding:6px 11px;border-bottom:1px solid #E5E7EB;font-weight:600;color:{vc}">{v}</td></tr>"""
+        {''.join(f'''<tr><td style="padding:6px 11px;border-bottom:1px solid #E5E7EB">{k}</td>
+        <td style="padding:6px 11px;border-bottom:1px solid #E5E7EB;font-weight:600;color:{vc}">{v}</td></tr>'''
         for k,v,vc in [
           ("Overall Risk Level", risk_lvl, risk_color),
           ("Climate VaR", f"{cvar_pct:.2f}%", "#DC2626"),
