@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v3.1
+TC Energy — Climate Risk Stress Testing Terminal  v5
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -171,61 +171,102 @@ ASSETS = {
     "NGTL System (AB/BC)": {
         "Type": "Gas Transmission Network",
         "Country": "Canada",
-        "Value_B": 18.5,       # CAD $B — Canadian Pipelines segment carrying value
-        "Emissions_Mt": 6.20,  # Mt CO2e — largest single source, ~50% of total Scope 1
+        "Value_B": 18.5,
+        "Emissions_Mt": 6.20,
         "Lat": 53.5, "Lon": -113.5,
+        # Hazards present + per-hazard damage rates (% of book) under RCP45 / RCP85
+        # Source: Swiss Re NatCat; NRCan Alberta wildfire exposure; IPCC AR6 WG2 Ch.12
+        # NGTL covers Alberta/NE BC — primary risks are wildfire (AB boreal) and extreme heat
+        # Flooding: riverine risk along North Saskatchewan corridor — moderate
         "Hazards": ["Wildfire", "Flooding", "Extreme Heat"],
-        "Stranded_F": 0.12,    # lower: long-term take-or-pay contracts, regulated
-        # Scenario-specific annual damage rate (% of book value)
+        "HazardPhys": {
+            # {hazard: {"RCP45": rate, "RCP85": rate, "NZ": rate, "DT": rate, "CP": rate}}
+            "Wildfire":     {"RCP45": 0.028, "RCP85": 0.112, "NZ": 0.020, "DT": 0.095, "CP": 0.060},
+            "Flooding":     {"RCP45": 0.009, "RCP85": 0.032, "NZ": 0.007, "DT": 0.026, "CP": 0.018},
+            "Extreme Heat": {"RCP45": 0.005, "RCP85": 0.018, "NZ": 0.004, "DT": 0.014, "CP": 0.010},
+        },
+        # Scenario-aggregate rate (portfolio-weighted, used for map/summary)
         "Phys": {"RCP45": 0.018, "RCP85": 0.082, "NZ": 0.013, "DT": 0.070, "CP": 0.045},
-        "PassThru": 0.65,      # % of carbon costs recovered through regulated tariffs
+        "Stranded_F": 0.12,
+        "PassThru": 0.65,
         "Note": "93,700 km network; Alberta Energy Regulator regulated",
     },
     "Coastal GasLink (BC)": {
         "Type": "Gas Pipeline",
         "Country": "Canada",
-        "Value_B": 14.5,       # CAD $B — construction cost ~$14.5B
-        "Emissions_Mt": 1.10,  # Mt CO2e
+        "Value_B": 14.5,
+        "Emissions_Mt": 1.10,
         "Lat": 54.5, "Lon": -128.6,
+        # BC interior: highest wildfire risk in Canada; flooding/landslide from atmospheric rivers
+        # Source: BC Wildfire Service; NRCan; IPCC AR6 WG2 Ch.12 (Western Canada)
         "Hazards": ["Wildfire", "Flooding", "Landslide"],
-        "Stranded_F": 0.08,    # 20-yr LNG Canada offtake agreement provides security
+        "HazardPhys": {
+            "Wildfire":  {"RCP45": 0.020, "RCP85": 0.080, "NZ": 0.014, "DT": 0.065, "CP": 0.042},
+            "Flooding":  {"RCP45": 0.008, "RCP85": 0.038, "NZ": 0.006, "DT": 0.031, "CP": 0.020},
+            "Landslide": {"RCP45": 0.006, "RCP85": 0.028, "NZ": 0.004, "DT": 0.022, "CP": 0.015},
+        },
         "Phys": {"RCP45": 0.013, "RCP85": 0.048, "NZ": 0.009, "DT": 0.041, "CP": 0.028},
+        "Stranded_F": 0.08,
         "PassThru": 0.50,
         "Note": "670 km; fully contracted to LNG Canada; TC Energy 35% ownership",
     },
     "Keystone Pipeline System": {
         "Type": "Liquids Pipeline",
         "Country": "Canada/US",
-        "Value_B": 11.2,       # CAD $B — US Pipelines segment allocation
-        "Emissions_Mt": 2.10,  # Mt CO2e
+        "Value_B": 11.2,
+        "Emissions_Mt": 2.10,
         "Lat": 49.0, "Lon": -110.0,
+        # Canadian prairies/northern US: permafrost thaw (northern segments), flooding (Missouri R.)
+        # Extreme cold: operational risk in SK/MB winters; heatwave: soil movement/buckling
+        # Source: NRCan; IPCC AR6 WG2 Ch.11 (North America); TC Energy 2024 SR
         "Hazards": ["Flooding", "Extreme Cold", "Permafrost Thaw"],
-        "Stranded_F": 0.22,    # higher: oil demand risk under transition
+        "HazardPhys": {
+            "Flooding":       {"RCP45": 0.018, "RCP85": 0.045, "NZ": 0.012, "DT": 0.038, "CP": 0.025},
+            "Extreme Cold":   {"RCP45": 0.004, "RCP85": 0.008, "NZ": 0.003, "DT": 0.007, "CP": 0.005},
+            # Note: Extreme Cold risk DECREASES under warming — lower damage under RCP8.5
+            "Permafrost Thaw":{"RCP45": 0.010, "RCP85": 0.038, "NZ": 0.007, "DT": 0.030, "CP": 0.020},
+        },
         "Phys": {"RCP45": 0.025, "RCP85": 0.058, "NZ": 0.018, "DT": 0.049, "CP": 0.033},
+        "Stranded_F": 0.22,
         "PassThru": 0.70,
         "Note": "~4,324 km; transports ~553,000 bbl/day; FERC/NEB regulated",
     },
     "Bruce Power (48.3% share, ON)": {
         "Type": "Nuclear Power Generation",
         "Country": "Canada",
-        "Value_B": 5.8,        # CAD $B — TC Energy equity stake value
-        "Emissions_Mt": 0.08,  # Mt CO2e — nuclear, near-zero Scope 1
+        "Value_B": 5.8,
+        "Emissions_Mt": 0.08,
         "Lat": 44.3, "Lon": -81.5,
+        # Lake Huron shore: cooling water intake risk from low lake levels; heat stress on turbines
+        # No wildfire/flood/hurricane exposure — great lake shore, regulated Ontario site
+        # Source: Bruce Power Environmental Assessment; IPCC AR6 WG2 Ch.12; OPG Great Lakes study
         "Hazards": ["Extreme Heat", "Water Level Change"],
-        "Stranded_F": 0.02,    # very low: IESO life-extension agreement to 2064
+        "HazardPhys": {
+            "Extreme Heat":      {"RCP45": 0.006, "RCP85": 0.018, "NZ": 0.004, "DT": 0.014, "CP": 0.010},
+            "Water Level Change":{"RCP45": 0.004, "RCP85": 0.012, "NZ": 0.003, "DT": 0.009, "CP": 0.006},
+        },
         "Phys": {"RCP45": 0.009, "RCP85": 0.025, "NZ": 0.005, "DT": 0.018, "CP": 0.012},
+        "Stranded_F": 0.02,
         "PassThru": 0.85,
         "Note": "6,550 MW capacity; Ontario IESO contracted; refurbishment underway",
     },
     "Mexico Gas Pipelines": {
         "Type": "Marine / Offshore Pipeline",
         "Country": "Mexico",
-        "Value_B": 4.5,        # CAD $B — Mexico Natural Gas Pipelines segment
-        "Emissions_Mt": 0.85,  # Mt CO2e
+        "Value_B": 4.5,
+        "Emissions_Mt": 0.85,
         "Lat": 19.2, "Lon": -96.1,
+        # Gulf of Mexico: hurricane intensification (CAT 4-5 frequency ↑ under RCP8.5)
+        # Sea level rise: coastal infrastructure exposure; flooding: Veracruz lowlands
+        # Source: IPCC AR6 WG2 Ch.12 (Central America); NOAA Atlantic Hurricane tracks
         "Hazards": ["Hurricane", "Sea Level Rise", "Flooding"],
-        "Stranded_F": 0.18,
+        "HazardPhys": {
+            "Hurricane":      {"RCP45": 0.038, "RCP85": 0.095, "NZ": 0.028, "DT": 0.078, "CP": 0.055},
+            "Sea Level Rise":  {"RCP45": 0.008, "RCP85": 0.035, "NZ": 0.006, "DT": 0.028, "CP": 0.018},
+            "Flooding":        {"RCP45": 0.010, "RCP85": 0.040, "NZ": 0.008, "DT": 0.033, "CP": 0.022},
+        },
         "Phys": {"RCP45": 0.038, "RCP85": 0.115, "NZ": 0.030, "DT": 0.098, "CP": 0.065},
+        "Stranded_F": 0.18,
         "PassThru": 0.45,
         "Note": "Sur de Texas-Tuxpan; ~700 km; CFE anchor customer",
     },
@@ -378,8 +419,8 @@ stranded_loss  = A["Value_B"] * 1000 * A["Stranded_F"] * stranded_mult * frac
 mkt_adj        = A["Value_B"] * 1000 * 0.04 if "Pipeline" in A["Type"] else 0.0
 net_pass_thru  = pass_thru / 100.0
 
-# Physical risk
-damage_rate  = A["Phys"][SC["key"]]
+# Physical risk — use per-hazard rate if available, else fall back to scenario aggregate
+damage_rate = A["HazardPhys"].get(hazard, {}).get(SC["key"], A["Phys"][SC["key"]])
 phys_loss_gross = A["Value_B"] * 1000 * damage_rate * frac
 phys_loss_net   = phys_loss_gross * (1 - net_pass_thru)
 
@@ -783,9 +824,17 @@ with tab3:
         st.plotly_chart(fig_area, use_container_width=True)
 
     with tr2:
-        # All-scenario carbon price divergence
+        # All-scenario carbon price divergence — full names
         yrs_full = np.arange(2024, 2051)
         fig_cp = go.Figure()
+        # Display name mapping: keep full NGFS names, shorten RCP only
+        SC_DISPLAY = {
+            "RCP 4.5 — Moderate Warming (~2°C)": "RCP 4.5 (~2°C)",
+            "RCP 8.5 — High Emission (~4°C)":    "RCP 8.5 (~4°C)",
+            "NGFS — Net Zero 2050":              "NGFS Net Zero 2050",
+            "NGFS — Delayed Transition":         "NGFS Delayed Transition",
+            "NGFS — Current Policies":           "NGFS Current Policies",
+        }
         for sc_n, sc_d in SCENARIOS.items():
             cp_full = np.array([
                 CARBON_SCHEDULE.get(y, 80 + (sc_d["cp_end"] - 80) * (y-2024)/26)
@@ -795,7 +844,7 @@ with tab3:
             dash = "solid" if sc_n == scenario_name else "dash"
             fig_cp.add_trace(go.Scatter(
                 x=yrs_full, y=cp_full,
-                name=sc_n.split(" — ")[0],
+                name=SC_DISPLAY.get(sc_n, sc_n),
                 line=dict(color=sc_d["color"], width=lw, dash=dash),
             ))
         fig_cp.add_vline(x=2030, line_dash="dot", line_color="#64748B", line_width=1,
@@ -975,40 +1024,51 @@ with tab4:
                               paper_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig_gv, use_container_width=True)
 
-    # ── NGFS Three-Scenario Comparison Panel ─────────────────────────────────
-    st.markdown('<div class="sec" style="font-size:.88rem;margin-top:.8rem">NGFS Scenario Comparison — All Three Transition Pathways</div>',
+    # ── Conditional Scenario Comparison (RCP or NGFS based on selection) ─────
+    is_rcp_selected = scenario_name.startswith("RCP")
+    if is_rcp_selected:
+        compare_keys  = ["RCP 4.5 \u2014 Moderate Warming (~2\u00b0C)", "RCP 8.5 \u2014 High Emission (~4\u00b0C)"]
+        compare_short = ["RCP 4.5 (~2\u00b0C)", "RCP 8.5 (~4\u00b0C)"]
+        compare_cols  = ["#1D4ED8", "#DC2626"]
+        compare_bgs   = ["#EFF6FF", "#FFF1F2"]
+        compare_bords = ["#93C5FD", "#FCA5A5"]
+        panel_title   = "RCP Scenario Comparison \u2014 Moderate vs High Emission"
+    else:
+        compare_keys  = ["NGFS \u2014 Net Zero 2050", "NGFS \u2014 Delayed Transition", "NGFS \u2014 Current Policies"]
+        compare_short = ["Net Zero 2050", "Delayed Transition", "Current Policies"]
+        compare_cols  = ["#059669", "#D97706", "#6B7280"]
+        compare_bgs   = ["#F0FDF4", "#FFFBEB", "#F8FAFC"]
+        compare_bords = ["#86EFAC", "#FDE68A", "#E2E8F0"]
+        panel_title   = "NGFS Scenario Comparison \u2014 Three Transition Pathways"
+
+    st.markdown(f'<div class="sec" style="font-size:.88rem;margin-top:.8rem">{panel_title}</div>',
                 unsafe_allow_html=True)
 
-    # NGFS scenario cards with real parameters
-    ngfs_keys  = ["NGFS — Net Zero 2050", "NGFS — Delayed Transition", "NGFS — Current Policies"]
-    ngfs_short = ["Net Zero 2050", "Delayed Transition", "Current Policies"]
-    ngfs_cols  = ["#059669", "#D97706", "#6B7280"]
-    ngfs_warm  = ["~1.5°C", "~1.8°C", "~3.0°C"]
-    ngfs_bgs   = ["#F0FDF4", "#FFFBEB", "#F8FAFC"]
-    ngfs_bord  = ["#86EFAC", "#FDE68A", "#E2E8F0"]
-
-    nc1, nc2, nc3 = st.columns(3)
-    for col, nk, ns, nc, nw, nb, nbr in zip(
-        [nc1, nc2, nc3], ngfs_keys, ngfs_short, ngfs_cols, ngfs_warm, ngfs_bgs, ngfs_bord
+    n_compare = len(compare_keys)
+    compare_layout = st.columns(n_compare)
+    for col, nk, ns, nc, nb, nbr in zip(
+        compare_layout, compare_keys, compare_short, compare_cols, compare_bgs, compare_bords
     ):
         sc_d = SCENARIOS[nk]
         sm   = 1.4 if sc_d["high_tax"] else 1.0
-        cp_s = np.array([CARBON_SCHEDULE.get(y, 80 + (sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
-        ct_s = float((A["Emissions_Mt"] * cp_s).sum())
+        cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
+        ct_s = float((A["Emissions_Mt"]*cp_s).sum())
         sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm*frac
         ma_s = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
         pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
-        tot_s = (ct_s + sl_s + ma_s + pl_s) * (1 - net_pass_thru)
-        cv_s  = tot_s / book_M * 100
+        tot_s = (ct_s+sl_s+ma_s+pl_s)*(1-net_pass_thru)
+        cv_s  = tot_s/book_M*100
         is_active = nk == scenario_name
         outline = f"2px solid {nc}" if is_active else f"1px solid {nbr}"
-        active_badge = ' <span style="font-size:.65rem;background:' + nc + ';color:white;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:5px">Active</span>' if is_active else ""
+        badge = (' <span style="font-size:.65rem;background:' + nc
+                 + ';color:white;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:5px">Active</span>'
+                 if is_active else "")
         col.markdown(f"""
         <div style="background:{nb};border:{outline};border-radius:10px;padding:1rem 1.1rem;">
-          <div style="font-size:.72rem;font-weight:700;color:{nc};text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">
-            {ns}{active_badge}
-          </div>
-          <div style="font-size:.68rem;color:#64748B;margin-bottom:.6rem">{sc_d['ipcc_ref']} &nbsp;·&nbsp; {nw}</div>
+          <div style="font-size:.72rem;font-weight:700;color:{nc};text-transform:uppercase;
+                      letter-spacing:.07em;margin-bottom:4px">{ns}{badge}</div>
+          <div style="font-size:.68rem;color:#64748B;margin-bottom:.6rem">
+            {sc_d['ipcc_ref']} &nbsp;&middot;&nbsp; {sc_d['warming']}</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.6rem">
             <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
               <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Climate VaR</div>
@@ -1018,13 +1078,13 @@ with tab4:
               <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Net Loss</div>
               <div style="font-size:1.05rem;font-weight:700;color:#0D2137">CAD {tot_s:.0f}M</div>
             </div>
-            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
-              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Transition</div>
-              <div style="font-size:.95rem;font-weight:700;color:#1D4ED8">CAD {(ct_s+sl_s+ma_s)*(1-net_pass_thru):.0f}M</div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #BFDBFE">
+              <div style="font-size:.6rem;color:#1D4ED8;font-weight:600;text-transform:uppercase">Transition Risk</div>
+              <div style="font-size:.9rem;font-weight:700;color:#1D4ED8">CAD {(ct_s+sl_s+ma_s)*(1-net_pass_thru):.0f}M</div>
             </div>
-            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
-              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Physical</div>
-              <div style="font-size:.95rem;font-weight:700;color:#DC2626">CAD {pl_s*(1-net_pass_thru):.0f}M</div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #FED7AA">
+              <div style="font-size:.6rem;color:#EA580C;font-weight:600;text-transform:uppercase">Physical Risk</div>
+              <div style="font-size:.9rem;font-weight:700;color:#EA580C">CAD {pl_s*(1-net_pass_thru):.0f}M</div>
             </div>
           </div>
           <div style="font-size:.69rem;color:#64748B;line-height:1.5">{sc_d['risk_focus']}</div>
@@ -1032,27 +1092,24 @@ with tab4:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # NGFS side-by-side waterfall subplots
-    ngfs_fig = make_subplots(
-        rows=1, cols=3,
-        subplot_titles=ngfs_short,
-        shared_yaxes=True,
-    )
-    for i, (nk, nc) in enumerate(zip(ngfs_keys, ngfs_cols), 1):
+    # Side-by-side waterfall for the compared scenarios
+    compare_fig = make_subplots(rows=1, cols=n_compare,
+                                subplot_titles=compare_short, shared_yaxes=True)
+    for i, (nk, nc) in enumerate(zip(compare_keys, compare_cols), 1):
         sc_d = SCENARIOS[nk]
         sm   = 1.4 if sc_d["high_tax"] else 1.0
         cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
-        ct_s = float((A["Emissions_Mt"]*cp_s).sum()) * (1-net_pass_thru)
-        sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm*frac * (1-net_pass_thru)
-        ma_s = (A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0) * (1-net_pass_thru)
-        pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac * (1-net_pass_thru)
-        sv   = max(book_M - ct_s - sl_s - ma_s - pl_s, 0)
-        ngfs_fig.add_trace(go.Waterfall(
+        ct_n = float((A["Emissions_Mt"]*cp_s).sum())*(1-net_pass_thru)
+        sl_n = A["Value_B"]*1000*A["Stranded_F"]*sm*frac*(1-net_pass_thru)
+        ma_n = (A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0)*(1-net_pass_thru)
+        pl_n = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac*(1-net_pass_thru)
+        sv   = max(book_M-ct_n-sl_n-ma_n-pl_n, 0)
+        compare_fig.add_trace(go.Waterfall(
             orientation="v",
             measure=["absolute","relative","relative","relative","relative","total"],
             x=["Book\nValue","Carbon\nTax","Stranded\nCapital","Market\nAdj.","Physical\nDamage","Stress\nValue"],
-            y=[book_M, -ct_s, -sl_s, -ma_s, -pl_s, sv],
-            text=[f"${v:.0f}" for v in [book_M,-ct_s,-sl_s,-ma_s,-pl_s,sv]],
+            y=[book_M,-ct_n,-sl_n,-ma_n,-pl_n,sv],
+            text=[f"${v:.0f}" for v in [book_M,-ct_n,-sl_n,-ma_n,-pl_n,sv]],
             textposition="outside", textfont=dict(size=8, color="#374151"),
             decreasing=dict(marker_color="#EF4444"),
             increasing=dict(marker_color="#22C55E"),
@@ -1061,55 +1118,71 @@ with tab4:
             showlegend=False,
         ), row=1, col=i)
 
-    ngfs_fig.update_layout(
-        height=380, template="plotly_white",
+    compare_fig.update_layout(
+        height=360, template="plotly_white",
         margin=dict(t=40, b=20, l=10, r=10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
-    ngfs_fig.update_yaxes(title_text="CAD $M", tickfont=dict(color="#374151"), row=1, col=1)
-    ngfs_fig.update_xaxes(tickfont=dict(size=8, color="#374151"))
-    st.plotly_chart(ngfs_fig, use_container_width=True)
+    compare_fig.update_yaxes(title_text="CAD $M", tickfont=dict(color="#374151"), row=1, col=1)
+    compare_fig.update_xaxes(tickfont=dict(size=8, color="#374151"))
+    st.plotly_chart(compare_fig, use_container_width=True)
 
-    # All 5 scenarios stacked bar (RCP + NGFS together)
-    st.markdown('<div class="sec" style="font-size:.85rem;margin-top:.3rem">Total Net Loss — All Scenarios</div>',
+    # Total Net Loss — All 5 Scenarios — BLUE=transition, ORANGE=physical
+    st.markdown('<div class="sec" style="font-size:.85rem;margin-top:.3rem">Total Net Loss \u2014 All Scenarios (Blue = Transition Risk, Orange = Physical Risk)</div>',
                 unsafe_allow_html=True)
+    SC_LABEL = {
+        "RCP 4.5 \u2014 Moderate Warming (~2\u00b0C)": "RCP 4.5",
+        "RCP 8.5 \u2014 High Emission (~4\u00b0C)":    "RCP 8.5",
+        "NGFS \u2014 Net Zero 2050":              "NGFS Net Zero 2050",
+        "NGFS \u2014 Delayed Transition":         "NGFS Delayed Transition",
+        "NGFS \u2014 Current Policies":           "NGFS Current Policies",
+    }
     sc_losses = []
     for sc_n, sc_d in SCENARIOS.items():
-        ht = sc_d["high_tax"]
-        sm = 1.4 if ht else 1.0
-        cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
-        ct_s  = float((A["Emissions_Mt"]*cp_s).sum())
-        sl_s  = A["Value_B"]*1000*A["Stranded_F"]*sm*frac
-        ma_s  = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
-        pl_s  = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
-        tot_s = (ct_s+sl_s+ma_s+pl_s)*(1-net_pass_thru)
-        sc_losses.append({"Scenario": sc_n.split(" — ")[0],
-                           "Transition": (ct_s+sl_s+ma_s)*(1-net_pass_thru),
-                           "Physical": pl_s*(1-net_pass_thru),
-                           "Total": tot_s, "Active": sc_n==scenario_name,
-                           "Color": sc_d["color"]})
-
+        ht = sc_d["high_tax"]; sm2 = 1.4 if ht else 1.0
+        cp_s = np.array([CARBON_SCHEDULE.get(y,80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
+        ct_s = float((A["Emissions_Mt"]*cp_s).sum())
+        sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm2*frac
+        ma_s = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
+        pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
+        sc_losses.append({
+            "Scenario":   SC_LABEL.get(sc_n, sc_n),
+            "Transition": (ct_s+sl_s+ma_s)*(1-net_pass_thru),
+            "Physical":   pl_s*(1-net_pass_thru),
+            "Total":      (ct_s+sl_s+ma_s+pl_s)*(1-net_pass_thru),
+            "Active":     sc_n == scenario_name,
+        })
     sc_df = pd.DataFrame(sc_losses).sort_values("Total", ascending=True)
     fig_sc2 = go.Figure()
     fig_sc2.add_trace(go.Bar(
         y=sc_df["Scenario"], x=sc_df["Transition"], orientation="h",
-        name="Transition Risk",
-        marker_color=[c if a else "#93C5FD" for c, a in zip(sc_df["Color"], sc_df["Active"])],
+        name="Transition Risk (carbon tax + stranded assets)",
+        marker_color=["#1D4ED8" if a else "#93C5FD" for a in sc_df["Active"]],
+        marker_line=dict(width=0),
     ))
     fig_sc2.add_trace(go.Bar(
         y=sc_df["Scenario"], x=sc_df["Physical"], orientation="h",
-        name="Physical Risk",
-        marker_color=[c if a else "#FCA5A5" for c, a in zip(sc_df["Color"], sc_df["Active"])],
-        opacity=0.6,
+        name="Physical Risk (asset damage)",
+        marker_color=["#EA580C" if a else "#FED7AA" for a in sc_df["Active"]],
+        marker_line=dict(width=0),
     ))
+    for _, row in sc_df.iterrows():
+        fig_sc2.add_annotation(
+            x=row["Total"], y=row["Scenario"],
+            text=f"CAD {row['Total']:.0f}M",
+            xanchor="left", yanchor="middle", showarrow=False, xshift=6,
+            font=dict(size=9, color="#374151"),
+        )
     fig_sc2.update_layout(
-        height=260, template="plotly_white", barmode="stack",
+        height=290, template="plotly_white", barmode="stack",
         xaxis=dict(title="Net Loss (CAD $M)", tickfont=dict(color="#374151")),
         yaxis=dict(tickfont=dict(size=9, color="#374151")),
-        legend=dict(font=dict(size=10, color="#374151"), orientation="h", y=-0.22),
-        margin=dict(t=10, b=55, l=10, r=10),
+        legend=dict(font=dict(size=10, color="#374151"), orientation="h", y=-0.25),
+        margin=dict(t=10, b=65, l=10, r=100),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
+    st.plotly_chart(fig_sc2, use_container_width=True)
+
     st.plotly_chart(fig_sc2, use_container_width=True)
 
 
