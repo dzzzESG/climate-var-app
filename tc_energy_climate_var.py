@@ -340,33 +340,26 @@ with tab4:
 with tab5:
     st.markdown('<div class="sec">Climate Risk Audit and Advisory Report</div>', unsafe_allow_html=True)
     
-    # [CRITICAL FIX]: Using flush-left HTML string to prevent Markdown code block rendering
+    # 将项目符号写为单行字符串，避免任何换行引起的 Markdown 解析错误
     if primary_driver == "Transition Risk":
-        strat = f"""<li style="margin-bottom:10px">
-<b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the {A['Emissions_Mt']} Mt CO2e per-year emission baseline. TC Energy's 2030 GHG intensity reduction target of 30% requires a compound reduction rate of ~5.8%/yr; enhanced compressor electrification and LDAR programs are the primary abatement levers.
-</li>
-<li style="margin-bottom:10px">
-<b>Tariff Pass-Through Review:</b> Evaluate the capacity to pass carbon compliance costs through regulated shipper tariffs. TC Energy's NEB/FERC-regulated pipelines currently recover ~{A['PassThru']*100:.0f}% of incremental compliance costs. Renegotiating contracts ahead of the 2030 $170/t milestone will protect EBITDA margins.
-</li>
-<li style="margin-bottom:10px">
-<b>Depreciation and Asset Life Review:</b> Reassess economic useful life of capital assets under the <b>{scenario_name}</b> pathway, particularly for assets with stranding factors above 15%. Accelerated depreciation provisions may be warranted for assets with residual exposure to fossil fuel demand risk.
-</li>"""
+        strat_bullets = (
+            "<li style='margin-bottom:10px;'><b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the " + str(A['Emissions_Mt']) + " Mt CO2e per-year emission baseline. TC Energy's 2030 GHG intensity reduction target of 30% requires a compound reduction rate of ~5.8%/yr; enhanced compressor electrification and LDAR programs are the primary abatement levers.</li>"
+            "<li style='margin-bottom:10px;'><b>Tariff Pass-Through Review:</b> Evaluate the capacity to pass carbon compliance costs through regulated shipper tariffs. TC Energy's NEB/FERC-regulated pipelines currently recover ~" + str(int(A['PassThru']*100)) + "% of incremental compliance costs. Renegotiating contracts ahead of the 2030 $170/t milestone will protect EBITDA margins.</li>"
+            "<li style='margin-bottom:10px;'><b>Depreciation and Asset Life Review:</b> Reassess economic useful life of capital assets under the <b>" + scenario_name + "</b> pathway, particularly for assets with stranding factors above 15%. Accelerated depreciation provisions may be warranted for assets with residual exposure to fossil fuel demand risk.</li>"
+        )
     else:
-        strat = f"""<li style="margin-bottom:10px">
-<b>Asset Hardening and Resilience Investment:</b> Increase capital expenditure for structural defenses against <b>{hazard}</b> at {selected}. IPCC AR6 projects significant intensification of this hazard class in the asset's geographic region under {SC['key']}.
-</li>
-<li style="margin-bottom:10px">
-<b>Insurance and Risk Transfer:</b> Reassess catastrophic loss insurance coverage limits, particularly for assets in TC Energy's Northern Canada and Mexico exposure zones. Benchmark against updated Munich Re / Swiss Re NatCat energy sector loss models.
-</li>
-<li style="margin-bottom:10px">
-<b>Emergency Response and Business Continuity:</b> Update location-specific emergency response plans to minimize throughput downtime and regulatory exposure during extreme weather events, consistent with TC Energy's operational safety management system commitments.
-</li>"""
+        strat_bullets = (
+            "<li style='margin-bottom:10px;'><b>Asset Hardening and Resilience Investment:</b> Increase capital expenditure for structural defenses against <b>" + hazard + "</b> at " + selected + ". IPCC AR6 projects significant intensification of this hazard class in the asset's geographic region under " + SC['key'] + ".</li>"
+            "<li style='margin-bottom:10px;'><b>Insurance and Risk Transfer:</b> Reassess catastrophic loss insurance coverage limits, particularly for assets in TC Energy's Northern Canada and Mexico exposure zones. Benchmark against updated Munich Re / Swiss Re NatCat energy sector loss models.</li>"
+            "<li style='margin-bottom:10px;'><b>Emergency Response and Business Continuity:</b> Update location-specific emergency response plans to minimize throughput downtime and regulatory exposure during extreme weather events, consistent with TC Energy's operational safety management system commitments.</li>"
+        )
 
-    html = f"""
-    <div class="rpt">
+    # 完整的 HTML 模板，将变量直接嵌入
+    html_report = f"""
+    <div class="rpt" style="background:#FFFFFF; padding:44px 52px; border:1px solid #D1D5DB; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.05); font-family:'Georgia',serif; color:#111827;">
       <div style="text-align:center;border-bottom:3px solid #0D2137;padding-bottom:16px;margin-bottom:28px">
         <div style="font-size:10.5px;letter-spacing:2px;color:#6B7280;text-transform:uppercase;margin-bottom:8px">Private and Confidential</div>
-        <h2>Climate Risk Audit and Advisory Report</h2>
+        <h2 style="margin:0;color:#0D2137;font-size:21px;text-transform:uppercase;letter-spacing:.4px;">Climate Risk Audit and Advisory Report</h2>
         <p style="color:#6B7280;font-size:13px;margin:6px 0 0;letter-spacing:.4px">Prepared for TC Energy Corporation (TRP.TO) — Internal Management Use Only</p>
       </div>
 
@@ -376,20 +369,25 @@ with tab5:
         <tr><td style="padding:7px 0;border-bottom:1px solid #E5E7EB"><b>Baseline Valuation:</b> CAD {A['Value_B']}B</td><td style="padding:7px 0;border-bottom:1px solid #E5E7EB"><b>Scope 1 Emissions:</b> {A['Emissions_Mt']} Mt CO2e/yr</td></tr>
       </table>
 
-      <h3>1. Executive Summary</h3>
-      <p>Under the <b>{scenario_name}</b> climate pathway, the <b>{selected}</b> asset demonstrates a <b style="color:{risk_color}">{risk_lvl.lower()} sensitivity</b> to integrated climate-related financial factors. The aggregated Climate Value-at-Risk (VaR) is calculated at <b>{cvar_pct:.2f}%</b>, representing a projected Net Present Value impairment of <b>CAD {total_loss:.1f} Million</b>.</p>
+      <h3 style="border-bottom:1px solid #0D2137;padding-bottom:4px;color:#0D2137;font-size:15px;margin-top:26px;margin-bottom:9px;">1. Executive Summary</h3>
+      <p style="font-size:13.5px;line-height:1.75;color:#1F2937;">Under the <b>{scenario_name}</b> climate pathway, the <b>{selected}</b> asset demonstrates a <b style="color:{risk_color}">{risk_lvl.lower()} sensitivity</b> to integrated climate-related financial factors. The aggregated Climate Value-at-Risk (VaR) is calculated at <b>{cvar_pct:.2f}%</b>, representing a projected Net Present Value impairment of <b>CAD {total_loss:.1f} Million</b>.</p>
 
-      <h3>2. Strategic Management Recommendations</h3>
-      <p>Diagnostic analytics identify <b>{primary_driver}</b> as the dominant value erosion catalyst. Management is advised to prioritise:</p>
-      <div class="rec">
-        <ul style="margin:0;padding-left:18px;line-height:1.85;font-size:13.5px">
-          {strat}
+      <h3 style="border-bottom:1px solid #0D2137;padding-bottom:4px;color:#0D2137;font-size:15px;margin-top:26px;margin-bottom:9px;">2. Strategic Management Recommendations</h3>
+      <p style="font-size:13.5px;line-height:1.75;color:#1F2937;">Diagnostic analytics identify <b>{primary_driver}</b> as the dominant value erosion catalyst. Management is advised to prioritise:</p>
+      
+      <div style="background:#F3F4F6;border-left:4px solid #0D2137;padding:14px 18px 14px 22px;">
+        <ul style="margin:0;padding-left:18px;line-height:1.85;font-size:13.5px;color:#1F2937;">
+          {strat_bullets}
         </ul>
       </div>
 
-      <div class="ftr">
+      <div style="font-size:11px;color:#9CA3AF;margin-top:36px;padding-top:12px;border-top:1px solid #D1D5DB;text-align:justify;">
         <b>Auditor Statement:</b> This stress test is aligned with the Task Force on Climate-related Financial Disclosures (TCFD) and IFRS S2 Climate-related Disclosures. Financial data sourced from TC Energy's 2024 Report on Sustainability.
       </div>
-    </div>"""
-
-    st.markdown(html, unsafe_allow_html=True)
+    </div>
+    """
+    
+    # [核心修复机制]：强行清除所有换行符，让 Markdown 解析器完全失效，保证 HTML 原生渲染
+    flat_html = html_report.replace('\n', '')
+    
+    st.markdown(flat_html, unsafe_allow_html=True)
