@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v5
+TC Energy — Climate Risk Stress Testing Terminal  v3.5
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -12,6 +12,16 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 from datetime import date
+
+# ── Chart / dataframe render helpers ─────────────────────────────────────────
+def _chart(fig):
+    """Render a Plotly figure at full container width."""
+    st.plotly_chart(fig, use_container_width=True)
+
+def _df(df, **kw):
+    """Render a dataframe at full container width."""
+    st.dataframe(df, use_container_width=True, **kw)
+
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -594,7 +604,7 @@ with tab1:
                 font=dict(size=10, color="#64748B"), x=0.01, y=0.01,
             ),
         )
-        st.plotly_chart(fig_map, use_container_width=True)
+        _chart(fig_map)
 
     with list_col:
         st.markdown('<div class="sec" style="font-size:.85rem">Portfolio Asset Profiles</div>',
@@ -679,7 +689,7 @@ with tab2:
         ))
         fig_g.update_layout(height=340, margin=dict(t=50, b=10, l=15, r=15),
                              paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_g, use_container_width=True)
+        _chart(fig_g)
 
     with gb:
         # All-asset comparison across all scenarios
@@ -709,7 +719,7 @@ with tab2:
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             showlegend=False,
         )
-        st.plotly_chart(fig_sc, use_container_width=True)
+        _chart(fig_sc)
 
     # Asset comparison horizontal bar
     st.markdown('<div class="sec" style="font-size:.85rem">Cross-Asset Physical Loss Comparison</div>',
@@ -743,7 +753,7 @@ with tab2:
         margin=dict(t=10, b=60, l=10, r=80),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
-    st.plotly_chart(fig_cmp, use_container_width=True)
+    _chart(fig_cmp)
 
     st.markdown(f"""
     <div class="mbox">
@@ -821,7 +831,7 @@ with tab3:
             margin=dict(t=40, b=60, l=10, r=10),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig_area, use_container_width=True)
+        _chart(fig_area)
 
     with tr2:
         # All-scenario carbon price divergence — full names
@@ -867,7 +877,7 @@ with tab3:
             margin=dict(t=40, b=20, l=10, r=130),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig_cp, use_container_width=True)
+        _chart(fig_cp)
 
     with st.expander("Transition Risk Breakdown Table"):
         tr_df = pd.DataFrame({
@@ -889,7 +899,7 @@ with tab3:
                                  f"{mkt_adj/book_M*100:.2f}%",
                                  f"{transition_total/book_M*100:.2f}%"],
         })
-        st.dataframe(tr_df, use_container_width=True, hide_index=True)
+        _df(tr_df, hide_index=True)
 
     st.markdown(f"""
     <div class="note">
@@ -961,7 +971,7 @@ with tab4:
             margin=dict(t=20, b=20, l=10, r=20),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig_wf, use_container_width=True)
+        _chart(fig_wf)
 
     with w2:
         # Loss attribution donut
@@ -996,7 +1006,7 @@ with tab4:
             margin=dict(t=40, b=40, l=0, r=0),
             paper_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        _chart(fig_pie)
 
         # Climate VaR gauge
         fig_gv = go.Figure(go.Indicator(
@@ -1022,24 +1032,24 @@ with tab4:
         fig_gv.update_layout(height=190,
                               margin=dict(t=40, b=0, l=10, r=10),
                               paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_gv, use_container_width=True)
+        _chart(fig_gv)
 
     # ── Conditional Scenario Comparison (RCP or NGFS based on selection) ─────
     is_rcp_selected = scenario_name.startswith("RCP")
     if is_rcp_selected:
-        compare_keys  = ["RCP 4.5 \u2014 Moderate Warming (~2\u00b0C)", "RCP 8.5 \u2014 High Emission (~4\u00b0C)"]
-        compare_short = ["RCP 4.5 (~2\u00b0C)", "RCP 8.5 (~4\u00b0C)"]
+        compare_keys  = ["RCP 4.5 — Moderate Warming (~2°C)", "RCP 8.5 — High Emission (~4°C)"]
+        compare_short = ["RCP 4.5 (~2°C)", "RCP 8.5 (~4°C)"]
         compare_cols  = ["#1D4ED8", "#DC2626"]
         compare_bgs   = ["#EFF6FF", "#FFF1F2"]
         compare_bords = ["#93C5FD", "#FCA5A5"]
-        panel_title   = "RCP Scenario Comparison \u2014 Moderate vs High Emission"
+        panel_title   = "RCP Scenario Comparison — Moderate vs High Emission"
     else:
-        compare_keys  = ["NGFS \u2014 Net Zero 2050", "NGFS \u2014 Delayed Transition", "NGFS \u2014 Current Policies"]
+        compare_keys  = ["NGFS — Net Zero 2050", "NGFS — Delayed Transition", "NGFS — Current Policies"]
         compare_short = ["Net Zero 2050", "Delayed Transition", "Current Policies"]
         compare_cols  = ["#059669", "#D97706", "#6B7280"]
         compare_bgs   = ["#F0FDF4", "#FFFBEB", "#F8FAFC"]
         compare_bords = ["#86EFAC", "#FDE68A", "#E2E8F0"]
-        panel_title   = "NGFS Scenario Comparison \u2014 Three Transition Pathways"
+        panel_title   = "NGFS Scenario Comparison — Three Transition Pathways"
 
     st.markdown(f'<div class="sec" style="font-size:.88rem;margin-top:.8rem">{panel_title}</div>',
                 unsafe_allow_html=True)
@@ -1125,17 +1135,17 @@ with tab4:
     )
     compare_fig.update_yaxes(title_text="CAD $M", tickfont=dict(color="#374151"), row=1, col=1)
     compare_fig.update_xaxes(tickfont=dict(size=8, color="#374151"))
-    st.plotly_chart(compare_fig, use_container_width=True)
+    _chart(compare_fig)
 
     # Total Net Loss — All 5 Scenarios — BLUE=transition, ORANGE=physical
-    st.markdown('<div class="sec" style="font-size:.85rem;margin-top:.3rem">Total Net Loss \u2014 All Scenarios (Blue = Transition Risk, Orange = Physical Risk)</div>',
+    st.markdown('<div class="sec" style="font-size:.85rem;margin-top:.3rem">Total Net Loss — All Scenarios (Blue = Transition Risk, Orange = Physical Risk)</div>',
                 unsafe_allow_html=True)
     SC_LABEL = {
-        "RCP 4.5 \u2014 Moderate Warming (~2\u00b0C)": "RCP 4.5",
-        "RCP 8.5 \u2014 High Emission (~4\u00b0C)":    "RCP 8.5",
-        "NGFS \u2014 Net Zero 2050":              "NGFS Net Zero 2050",
-        "NGFS \u2014 Delayed Transition":         "NGFS Delayed Transition",
-        "NGFS \u2014 Current Policies":           "NGFS Current Policies",
+        "RCP 4.5 — Moderate Warming (~2°C)": "RCP 4.5",
+        "RCP 8.5 — High Emission (~4°C)":    "RCP 8.5",
+        "NGFS — Net Zero 2050":              "NGFS Net Zero 2050",
+        "NGFS — Delayed Transition":         "NGFS Delayed Transition",
+        "NGFS — Current Policies":           "NGFS Current Policies",
     }
     sc_losses = []
     for sc_n, sc_d in SCENARIOS.items():
@@ -1181,9 +1191,7 @@ with tab4:
         margin=dict(t=10, b=65, l=10, r=100),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
-    st.plotly_chart(fig_sc2, use_container_width=True)
-
-    st.plotly_chart(fig_sc2, use_container_width=True)
+    _chart(fig_sc2)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -1400,7 +1408,7 @@ with tab5:
                 buf.seek(0)
                 return buf.read()
 
-            except ImportError:
+            except Exception:
                 return None
 
         pdf_bytes = build_pdf()
@@ -1410,7 +1418,6 @@ with tab5:
                 data=pdf_bytes,
                 file_name=f"TRP_ClimateAudit_{selected[:8].replace(' ','_')}_{date.today()}.pdf",
                 mime="application/pdf",
-                use_container_width=True,
             )
         else:
             st.info("Install `reportlab` for PDF export: `pip install reportlab`")
@@ -1420,8 +1427,7 @@ with tab5:
                 f"Climate VaR: {cvar_pct:.2f}%", f"Total Loss: CAD {total_loss:.1f}M",
             ])
             st.download_button("Download Report (.txt)", data=fallback_txt,
-                file_name=f"TRP_ClimateAudit_{date.today()}.txt", mime="text/plain",
-                use_container_width=True)
+                file_name=f"TRP_ClimateAudit_{date.today()}.txt", mime="text/plain")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
