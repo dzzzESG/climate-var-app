@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v3.1
+TC Energy — Climate Risk Stress Testing Terminal  v3.3
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -96,9 +96,27 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
         padding: .75rem 1rem; font-size: .78rem; color: #374151; margin-top: .5rem; }
 
 /* Tabs */
-.stTabs [data-baseweb="tab-list"] { background: #E8EDF2; border-radius: 9px; padding: 4px; gap: 3px; }
-.stTabs [data-baseweb="tab"] { border-radius: 6px; padding: 7px 18px; font-size: .85rem; font-weight: 500; color: #64748B; }
-.stTabs [aria-selected="true"] { background: white !important; color: #0D2137 !important; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.stTabs [data-baseweb="tab-list"] { 
+    display: flex; 
+    width: 100%; 
+    background: #E8EDF2; 
+    border-radius: 9px; 
+    padding: 4px; 
+    gap: 3px; 
+
+.stTabs [data-baseweb="tab"] { 
+    flex: 1; /* Core magic: stretch each tab equally to fill the space */
+    justify-content: center; /* Ensure text is centered within the stretched tab */
+    border-radius: 6px; 
+    padding: 7px 18px; 
+    font-size: .85rem; 
+    font-weight: 500; 
+    color: #64748B; 
+
+.stTabs [aria-selected="true"] { 
+    background: white !important; 
+    color: #0D2137 !important; 
+    box-shadow: 0 1px 3px rgba(0,0,0,.1); 
 
 /* Expander */
 div[data-testid="stExpander"] { border: 1px solid #E2E8F0 !important; border-radius: 9px !important; }
@@ -352,7 +370,7 @@ risk_color = {"High": "#DC2626", "Moderate": "#D97706", "Low": "#16A34A"}[risk_l
 # ── Page header ───────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="page-hdr">
-  <h1>TC Energy Climate Risk Stress Testing</h1>
+  <h1>TC Energy Climate Risk Stress Testing Tool</h1>
   <p>Asset-Level Valuation Sensitivity and Hazard Analysis — TCFD / IFRS S2 Aligned</p>
 </div>
 <hr class="hdr-rule">
