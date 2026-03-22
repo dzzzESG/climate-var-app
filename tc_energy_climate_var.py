@@ -977,32 +977,31 @@ with tab4:
 #  TAB 5 — MANAGEMENT REPORT
 # ════════════════════════════════════════════════════════════════
 with tab5:
-    st.markdown('<div class="sec">Climate Risk Audit and Advisory Report</div>',
-                unsafe_allow_html=True)
+    st.markdown('<div class="sec">Climate Risk Audit and Advisory Report</div>', unsafe_allow_html=True)
 
     dl_col, _ = st.columns([2, 8])
     with dl_col:
         report_txt = "\n".join([
             "TC Energy — Climate Risk Stress Test Report",
             "=" * 52,
-            f"Date:            {date.today().strftime('%B %d, %Y')}",
-            f"Asset:           {selected}",
-            f"Scenario:        {scenario_name}",
-            f"Horizon:         2024 to {end_year} ({duration} years)",
-            f"Baseline Value:  CAD {A['Value_B']}B",
-            f"Scope 1 (asset): {A['Emissions_Mt']} Mt CO2e/yr",
+            f"Date:             {date.today().strftime('%B %d, %Y')}",
+            f"Asset:            {selected}",
+            f"Scenario:         {scenario_name}",
+            f"Horizon:          2024 to {end_year} ({duration} years)",
+            f"Baseline Value:   CAD {A['Value_B']}B",
+            f"Scope 1 (asset):  {A['Emissions_Mt']} Mt CO2e/yr",
             "-" * 52,
-            f"Climate VaR:     {cvar_pct:.2f}%",
-            f"Total Net Loss:  CAD {total_loss:.1f}M",
-            f"Primary Driver:  {primary_driver}",
-            f"Risk Level:      {risk_lvl}",
+            f"Climate VaR:      {cvar_pct:.2f}%",
+            f"Total Net Loss:   CAD {total_loss:.1f}M",
+            f"Primary Driver:   {primary_driver}",
+            f"Risk Level:       {risk_lvl}",
             "-" * 52,
-            f"Carbon Tax:      CAD {cum_carbon_tax:.1f}M (gross)",
-            f"Stranded Asset:  CAD {stranded_loss:.1f}M",
-            f"Physical Damage: CAD {phys_loss_gross:.1f}M (gross)",
-            f"Pass-Through:    {pass_thru}%",
-            f"Market Cap:      CAD {MKT['mktcap_bn']:.1f}B (live)",
-            f"FX Rate:         1 USD = {FX:.4f} CAD",
+            f"Carbon Tax:       CAD {cum_carbon_tax:.1f}M (gross)",
+            f"Stranded Asset:   CAD {stranded_loss:.1f}M",
+            f"Physical Damage:  CAD {phys_loss_gross:.1f}M (gross)",
+            f"Pass-Through:     {pass_thru}%",
+            f"Market Cap:       CAD {MKT['mktcap_bn']:.1f}B (live)",
+            f"FX Rate:          1 USD = {FX:.4f} CAD",
             "=" * 52,
             "Data: TC Energy 2024 Report on Sustainability, ESG Data Sheet,",
             "      Annual Report 2023, Q3 2024 MD&A. TCFD/IFRS S2 aligned.",
@@ -1015,105 +1014,64 @@ with tab5:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Dynamic strategy
+    # 核心修复：使用单行括号拼接，彻底干掉所有的换行和缩进符，防止 Markdown 解析器暴走
     if primary_driver == "Transition Risk":
-        strat = f"""
-        <li style="margin-bottom:10px">
-          <b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the
-          {A['Emissions_Mt']} Mt CO2e per-year emission baseline.
-          TC Energy's 2030 GHG intensity reduction target of 30% requires a compound
-          reduction rate of ~5.8%/yr; enhanced compressor electrification and LDAR
-          programs are the primary abatement levers.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Tariff Pass-Through Review:</b> Evaluate the capacity to pass carbon
-          compliance costs through regulated shipper tariffs. TC Energy's NEB/FERC-regulated
-          pipelines currently recover ~{A['PassThru']*100:.0f}% of incremental compliance costs.
-          Renegotiating contracts ahead of the 2030 $170/t milestone will protect EBITDA margins.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Depreciation and Asset Life Review:</b> Reassess economic useful life of capital
-          assets under the <b>{scenario_name}</b> pathway, particularly for assets with stranding
-          factors above 15%. Accelerated depreciation provisions may be warranted for
-          assets with residual exposure to fossil fuel demand risk.
-        </li>"""
+        strat_html = (
+            f"<li style='margin-bottom:12px;'><b>Decarbonization CAPEX:</b> Accelerate operational upgrades targeting the {A['Emissions_Mt']} Mt CO2e per-year emission baseline. TC Energy's 2030 GHG intensity reduction target of 30% requires a compound reduction rate of ~5.8%/yr; enhanced compressor electrification and LDAR programs are the primary abatement levers.</li>"
+            f"<li style='margin-bottom:12px;'><b>Tariff Pass-Through Review:</b> Evaluate the capacity to pass carbon compliance costs through regulated shipper tariffs. TC Energy's NEB/FERC-regulated pipelines currently recover ~{int(A['PassThru']*100)}% of incremental compliance costs. Renegotiating contracts ahead of the 2030 $170/t milestone will protect EBITDA margins.</li>"
+            f"<li style='margin-bottom:12px;'><b>Depreciation and Asset Life Review:</b> Reassess economic useful life of capital assets under the <b>{scenario_name}</b> pathway, particularly for assets with stranding factors above 15%. Accelerated depreciation provisions may be warranted for assets with residual exposure to fossil fuel demand risk.</li>"
+        )
     else:
-        strat = f"""
-        <li style="margin-bottom:10px">
-          <b>Asset Hardening and Resilience Investment:</b> Increase capital expenditure for
-          structural defenses against <b>{hazard}</b> at {selected}.
-          IPCC AR6 projects significant intensification of this hazard class in the
-          asset's geographic region under {SC['key']}.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Insurance and Risk Transfer:</b> Reassess catastrophic loss insurance coverage
-          limits, particularly for assets in TC Energy's Northern Canada and Mexico exposure
-          zones. Benchmark against updated Munich Re / Swiss Re NatCat energy sector loss models.
-        </li>
-        <li style="margin-bottom:10px">
-          <b>Emergency Response and Business Continuity:</b> Update location-specific
-          emergency response plans to minimize throughput downtime and regulatory exposure
-          during extreme weather events, consistent with TC Energy's operational safety
-          management system commitments.
-        </li>"""
+        strat_html = (
+            f"<li style='margin-bottom:12px;'><b>Asset Hardening and Resilience Investment:</b> Increase capital expenditure for structural defenses against <b>{hazard}</b> at {selected}. IPCC AR6 projects significant intensification of this hazard class in the asset's geographic region under {SC['key']}.</li>"
+            f"<li style='margin-bottom:12px;'><b>Insurance and Risk Transfer:</b> Reassess catastrophic loss insurance coverage limits, particularly for assets in TC Energy's Northern Canada and Mexico exposure zones. Benchmark against updated Munich Re / Swiss Re NatCat energy sector loss models.</li>"
+            f"<li style='margin-bottom:12px;'><b>Emergency Response and Business Continuity:</b> Update location-specific emergency response plans to minimize throughput downtime and regulatory exposure during extreme weather events, consistent with TC Energy's operational safety management system commitments.</li>"
+        )
 
-    html = f"""
-    <div class="rpt">
-
-      <div style="text-align:center;border-bottom:3px solid #0D2137;
-                  padding-bottom:16px;margin-bottom:28px">
-        <div style="font-size:10.5px;letter-spacing:2px;color:#6B7280;
-                    text-transform:uppercase;margin-bottom:8px">
-          Private and Confidential
-        </div>
-        <h2>Climate Risk Audit and Advisory Report</h2>
-        <p style="color:#6B7280;font-size:13px;margin:6px 0 0;letter-spacing:.4px">
-          Prepared for TC Energy Corporation (TRP.TO) — Internal Management Use Only
-        </p>
+    # 全局排版，直接将单行的 strat_html 嵌入
+    html_report = f"""
+    <div class="rpt" style="background:#FFFFFF; padding:44px 52px; border:1px solid #D1D5DB; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.05); font-family:'Georgia',serif; color:#111827;">
+      <div style="text-align:center; border-bottom:3px solid #0D2137; padding-bottom:16px; margin-bottom:28px;">
+        <div style="font-size:10.5px; letter-spacing:2px; color:#6B7280; text-transform:uppercase; margin-bottom:8px;">Private and Confidential</div>
+        <h2 style="margin:0; color:#0D2137; font-size:21px; text-transform:uppercase; letter-spacing:.4px;">Climate Risk Audit and Advisory Report</h2>
+        <p style="color:#6B7280; font-size:13px; margin:6px 0 0; letter-spacing:.4px;">Prepared for TC Energy Corporation (TRP.TO) — Internal Management Use Only</p>
       </div>
 
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
+      <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:13px;">
         <tr>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB;width:50%">
-            <b>Date of Assessment:</b> {date.today().strftime('%B %d, %Y')}
-          </td>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Stress Horizon:</b> 2024 to {end_year} ({duration} years)
-          </td>
+          <td style="padding:7px 0; border-bottom:1px solid #E5E7EB; width:50%;"><b>Date of Assessment:</b> {date.today().strftime('%B %d, %Y')}</td>
+          <td style="padding:7px 0; border-bottom:1px solid #E5E7EB;"><b>Stress Horizon:</b> 2024 to {end_year} ({duration} years)</td>
         </tr>
         <tr>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Asset Under Assessment:</b> {selected}
-          </td>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Climate Pathway:</b> {scenario_name}
-          </td>
+          <td style="padding:7px 0; border-bottom:1px solid #E5E7EB;"><b>Asset Under Assessment:</b> {selected}</td>
+          <td style="padding:7px 0; border-bottom:1px solid #E5E7EB;"><b>Climate Pathway:</b> {scenario_name}</td>
         </tr>
         <tr>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Asset Classification:</b> {A['Type']}
-          </td>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Physical Hazard Focus:</b> {hazard}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Baseline Valuation:</b> CAD {A['Value_B']}B (2023 carrying value)
-          </td>
-          <td style="padding:7px 0;border-bottom:1px solid #E5E7EB">
-            <b>Scope 1 Emissions:</b> {A['Emissions_Mt']} Mt CO2e/yr (asset-level estimate)
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:7px 0">
-            <b>Applied WACC:</b> {wacc*100:.1f}%
-          </td>
-          <td style="padding:7px 0">
-            <b>Live FX Rate:</b> 1 USD = {FX:.4f} CAD ({MKT['ts']})
-          </td>
+          <td style="padding:7px 0; border-bottom:1px solid #E5E7EB;"><b>Baseline Valuation:</b> CAD {A['Value_B']}B</td>
+          <td style="padding:7px 0; border-bottom:1px solid #E5E7EB;"><b>Scope 1 Emissions:</b> {A['Emissions_Mt']} Mt CO2e/yr</td>
         </tr>
       </table>
+
+      <h3 style="border-bottom:1px solid #0D2137; padding-bottom:4px; color:#0D2137; font-size:15px; margin-top:26px; margin-bottom:9px;">1. Executive Summary</h3>
+      <p style="font-size:13.5px; line-height:1.75; color:#1F2937; margin-bottom:16px;">Under the <b>{scenario_name}</b> climate pathway, the <b>{selected}</b> asset demonstrates a <b style="color:{risk_color};">{risk_lvl.lower()} sensitivity</b> to integrated climate-related financial factors. The aggregated Climate Value-at-Risk (VaR) is calculated at <b>{cvar_pct:.2f}%</b>, representing a projected Net Present Value impairment of <b>CAD {total_loss:.1f} Million</b>.</p>
+
+      <h3 style="border-bottom:1px solid #0D2137; padding-bottom:4px; color:#0D2137; font-size:15px; margin-top:26px; margin-bottom:9px;">2. Strategic Management Recommendations</h3>
+      <p style="font-size:13.5px; line-height:1.75; color:#1F2937; margin-bottom:12px;">Diagnostic analytics identify <b>{primary_driver}</b> as the dominant value erosion catalyst. Management is advised to prioritise:</p>
+      
+      <div style="background:#F3F4F6; border-left:4px solid #0D2137; padding:16px 20px;">
+        <ul style="margin:0; padding-left:18px; line-height:1.85; font-size:13.5px; color:#1F2937;">
+          {strat_html}
+        </ul>
+      </div>
+
+      <div style="font-size:11px; color:#9CA3AF; margin-top:36px; padding-top:12px; border-top:1px solid #D1D5DB; text-align:justify;">
+        <b>Auditor Statement:</b> This stress test is aligned with the Task Force on Climate-related Financial Disclosures (TCFD) and IFRS S2 Climate-related Disclosures. Financial data sourced from TC Energy's 2024 Report on Sustainability.
+      </div>
+    </div>
+    """
+
+    # 最后使用去除所有跨行标签间空白的保险策略渲染
+    st.markdown(html_report, unsafe_allow_html=True)
 
       <h3>1. Executive Summary</h3>
       <p>
