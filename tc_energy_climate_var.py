@@ -174,10 +174,10 @@ html,body,[class*="css"]{ font-family:'Inter',sans-serif; }
 .hero h1  { font-size:1.75rem; font-weight:700; margin:0 0 .3rem; letter-spacing:-.4px; }
 .hero sub { font-size:.87rem; color:#94a3b8; line-height:1.6; }
 .htags    { display:flex; gap:7px; margin-top:.9rem; flex-wrap:wrap; }
-.htag { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
-  border-radius:20px; padding:2px 11px; font-size:.7rem; color:#cbd5e1; }
-.hlive { background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3);
-  border-radius:20px; padding:2px 11px; font-size:.7rem; color:#4ade80; }
+.htag { background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.2);
+  border-radius:20px; padding:2px 11px; font-size:.7rem; color:#e2e8f0; }
+.hlive { background:rgba(34,197,94,.2); border:1px solid rgba(34,197,94,.4);
+  border-radius:20px; padding:2px 11px; font-size:.7rem; color:#bbf7d0; }
 
 /* ── KPI cards ── */
 .kpi { background:white; border-radius:12px; padding:1.1rem 1.4rem;
@@ -210,17 +210,18 @@ html,body,[class*="css"]{ font-family:'Inter',sans-serif; }
 
 /* ── Formula box ── */
 .fbox {
-  background:#0f172a; border-radius:10px; padding:1rem 1.4rem; margin:.7rem 0;
-  font-family:'Courier New',monospace; font-size:.8rem; color:#e2e8f0;
-  line-height:1.9; border-left:4px solid #3b82f6;
+  background:#f8fafc; border-radius:10px; padding:1rem 1.4rem; margin:.7rem 0;
+  font-family:'Courier New',monospace; font-size:.8rem; color:#1e293b;
+  line-height:1.9; border-left:4px solid #3b82f6; border:1px solid #e2e8f0;
+  border-left-width:4px;
 }
 
 /* ── Scenario trade-off cards ── */
-.sc45 { background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #93c5fd;
+.sc45 { background:#eff6ff; border:1px solid #93c5fd;
   border-radius:12px; padding:1rem 1.3rem; }
-.sc85 { background:linear-gradient(135deg,#fff1f2,#ffe4e6); border:1px solid #fca5a5;
+.sc85 { background:#fff1f2; border:1px solid #fca5a5;
   border-radius:12px; padding:1rem 1.3rem; }
-.sc-title { font-size:.95rem; font-weight:700; margin-bottom:.6rem; }
+.sc-title { font-size:.95rem; font-weight:700; margin-bottom:.6rem; color:#0f172a; }
 
 /* ── Note / source ── */
 .note { background:#f0f9ff; border-left:4px solid #0ea5e9; border-radius:0 10px 10px 0;
@@ -251,100 +252,106 @@ div[data-testid="stExpander"]{ border:1px solid #e2e8f0!important;border-radius:
 # ══════════════════════════════════════════════════════════════════════════════
 #  SIDEBAR — 4 Logical Sections
 # ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+#  SIDEBAR — 4 Logical Sections
+# ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    # Live FX indicator
-    fx_color = "#4ade80" if mkt["live"] else "#f59e0b"
-    fx_status = "● Live" if mkt["live"] else "○ Fallback"
-    st.markdown(f"""
-    <div style="background:#0f172a;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem">
-      <div style="font-size:.7rem;color:#64748b;font-weight:600;letter-spacing:.08em">LIVE MARKET DATA</div>
-      <div style="font-size:1.15rem;font-weight:700;color:white;margin:.3rem 0">
-        1 USD = <span style="color:#4ade80">{FX:.4f} CAD</span>
-      </div>
-      <div style="font-size:.7rem;color:{fx_color}">{fx_status} · TRP ~CAD ${mkt['trp_price']:.2f} · {mkt['ts']}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("## TC Energy Climate VaR")
+    st.caption("Climate Risk Stress Testing Platform · v3.0")
+    st.divider()
 
     # ── SECTION 1: Portfolio Assets ──────────────────────────────
-    st.markdown("### 🏗️ Portfolio Assets")
-    st.markdown('<div class="slbl">Asset Selector</div>', unsafe_allow_html=True)
+    st.markdown("### Portfolio Assets")
     selected_assets = st.multiselect(
-        "Select TC Energy Assets",
+        "Select Assets",
         ASSET_NAMES,
-        default=["NGTL System","Coastal GasLink","Keystone System","Bruce Power","Southeast Gateway (Mexico)"],
+        default=["NGTL System","Coastal GasLink","Keystone System",
+                 "Bruce Power","Southeast Gateway (Mexico)"],
         help="Assets included in portfolio-level physical risk calculation"
     )
-    if not selected_assets: selected_assets = ["NGTL System"]
-
-    # Dynamic asset info card
-    focus_asset = st.selectbox("Inspect Asset", selected_assets)
-    fa = ASSETS_DF[ASSETS_DF["Asset"]==focus_asset].iloc[0]
-    st.markdown(f"""<div class="asset-card">
-      <h4>{fa['Asset']}</h4>
-      <table>
-        <tr><td>Category</td><td><b>{fa['Category']}</b></td></tr>
-        <tr><td>Country</td><td>{fa['Country']}</td></tr>
-        <tr><td>Book Value</td><td><b>CAD ${fa['Value_CAD_B']}B</b></td></tr>
-        <tr><td>Scope 1 (est.)</td><td>{fa['Scope1_Mt']} Mt CO₂e/yr</td></tr>
-        <tr><td>Primary Hazard</td><td><b style="color:#dc2626">{fa['Hazard']}</b></td></tr>
-        <tr><td>Risk Weight</td><td>{fa['Risk_Weight']} / 1.0</td></tr>
-        <tr><td>Pass-Through</td><td>{fa['PassThru_pct']}%</td></tr>
-        <tr><td>Lat / Lon</td><td>{fa['Lat']}°N, {fa['Lon']}°E</td></tr>
-      </table>
-    </div>""", unsafe_allow_html=True)
+    if not selected_assets:
+        selected_assets = ["NGTL System"]
 
     # ── SECTION 2: Scenarios & Horizon ──────────────────────────
-    st.markdown("### ⚡ Scenarios & Horizon")
-    st.markdown("""<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;
-      padding:.6rem .9rem;font-size:.78rem;color:#92400e;margin-bottom:.6rem">
-      <b>RCP 4.5</b> = High Transition Risk (aggressive carbon pricing, controlled physical)<br>
-      <b>RCP 8.5</b> = High Physical Risk (slow policy, extreme climate damage)
-    </div>""", unsafe_allow_html=True)
-    scenario_mode = st.radio("Scenario Mode",
-        ["RCP 4.5 Only","RCP 8.5 Only","Side-by-Side Comparison"], index=2)
-    ngfs_sel = st.selectbox("NGFS Transition Scenario", list(NGFS.keys()), index=1)
-    horizon  = st.slider("Stress Horizon", 5, 25, 24, 1,
-                          help="TCFD recommends long-term (to 2050). Range: 2026–2050.",
-                          format="%d yrs")
+    st.markdown("### Scenarios & Horizon")
+    scenario_mode = st.selectbox(
+        "Physical Risk Scenario (IPCC)",
+        ["RCP 4.5 — Moderate (High Transition / Medium Physical)",
+         "RCP 8.5 — High Emission (Low Transition / Extreme Physical)",
+         "Side-by-Side Comparison"],
+        index=2
+    )
+    ngfs_sel = st.selectbox(
+        "Transition Scenario (NGFS)",
+        list(NGFS.keys()), index=1
+    )
+    horizon = st.slider("Stress Horizon", 5, 25, 24, 1, format="%d yrs")
+    st.caption(f"Analysis period: 2026 to {2026 + horizon} ({horizon} years)")
     start_yr = 2026
     end_yr   = start_yr + horizon
 
-    # ── SECTION 3: Hazard Types ──────────────────────────────────
-    st.markdown("### 🌊 Risk Exposure")
-    st.markdown('<div class="slbl">Physical Hazards (Canada-specific)</div>', unsafe_allow_html=True)
-    h_wildfire  = st.checkbox("🔥 Wildfire (Western Canada)", value=True)
-    h_permafrost= st.checkbox("🧊 Permafrost Thaw (Northern Canada)", value=True)
-    h_flood     = st.checkbox("🌊 Flooding / Landslide", value=True)
-    h_heat      = st.checkbox("☀️ Heatwave / Drought", value=True)
-    h_hurricane = st.checkbox("🌀 Hurricane / Storm (Mexico/Gulf)", value=True)
+    # ── SECTION 3: Risk Exposure ─────────────────────────────────
+    st.markdown("### Risk Exposure")
+    st.markdown('<div class="slbl">Physical Hazards</div>', unsafe_allow_html=True)
+    phys_hazard_sel = st.multiselect(
+        "Active Physical Hazards",
+        ["Wildfire", "Permafrost Thaw", "Flooding / Landslide",
+         "Heatwave / Drought", "Hurricane / Storm"],
+        default=["Wildfire", "Permafrost Thaw", "Flooding / Landslide",
+                 "Heatwave / Drought", "Hurricane / Storm"]
+    )
     st.markdown('<div class="slbl">Transition Risk</div>', unsafe_allow_html=True)
-    t_carbontax  = st.checkbox("💸 Carbon Tax", value=True)
-    t_stranded   = st.checkbox("⚠️ Stranded Asset Risk", value=True)
-    t_demand     = st.checkbox("📉 NG Demand Erosion (NGFS)", value=True)
+    trans_risk_sel = st.multiselect(
+        "Active Transition Risks",
+        ["Carbon Tax", "Stranded Asset Risk", "NG Demand Erosion (NGFS)"],
+        default=["Carbon Tax", "Stranded Asset Risk", "NG Demand Erosion (NGFS)"]
+    )
 
-    active_hazards = []
-    if h_wildfire:   active_hazards += ["NGTL System","Foothills System","NOVA Gas Transmission"]
-    if h_permafrost: active_hazards += ["Keystone System","Canadian Mainline"]
-    if h_flood:      active_hazards += ["Coastal GasLink","ANR Pipeline (US)"]
-    if h_heat:       active_hazards += ["Keystone System","Bruce Power"]
-    if h_hurricane:  active_hazards += ["Southeast Gateway (Mexico)"]
+    # Derive boolean flags from multiselect
+    h_wildfire   = "Wildfire" in phys_hazard_sel
+    h_permafrost = "Permafrost Thaw" in phys_hazard_sel
+    h_flood      = "Flooding / Landslide" in phys_hazard_sel
+    h_heat       = "Heatwave / Drought" in phys_hazard_sel
+    h_hurricane  = "Hurricane / Storm" in phys_hazard_sel
+    t_carbontax  = "Carbon Tax" in trans_risk_sel
+    t_stranded   = "Stranded Asset Risk" in trans_risk_sel
+    t_demand     = "NG Demand Erosion (NGFS)" in trans_risk_sel
 
     # ── SECTION 4: Financial Assumptions ─────────────────────────
-    st.markdown("### 💼 Financial Assumptions")
+    st.markdown("### Financial Assumptions")
     ebitda_in    = st.number_input("Base EBITDA (CAD $B)", value=10.0, step=0.5, format="%.1f")
     wacc         = st.slider("WACC (%)", 4.0, 12.0, 7.5, 0.5)
-    carbon_price_2030 = st.slider("Carbon Price Override 2030 (CAD $/t)", 100, 300, 170,
-                                   help="Override the 2030 carbon price across both scenarios")
+    carbon_price_2030 = st.slider("Carbon Price 2030 (CAD $/t)", 100, 300, 170,
+                                   help="Override 2030 carbon price across both scenarios")
     pass_through = st.slider("Cost Pass-Through (%)", 0, 100, 60,
-                              help="% of carbon/physical costs passed to customers via regulated tariffs")
-    tgt_pct      = st.slider("2030 Reduction Target (%)", 10, 55, 30)
-    e_base_in    = st.number_input("Scope 1 Emissions 2024 (Mt CO₂e)", value=12.5, step=0.1, format="%.1f")
+                              help="% of costs recovered via regulated tariffs")
+    tgt_pct      = st.slider("2030 Emissions Reduction Target (%)", 10, 55, 30)
+    e_base_in    = st.number_input("Scope 1 Emissions 2024 (Mt CO2e)", value=12.5, step=0.1, format="%.1f")
     itc_rate     = st.slider("Federal ITC Rate (%)", 0, 40, 30)
     capex_per_mt = st.number_input("Abatement CAPEX/Mt (CAD $M)", value=42.0, step=1.0)
     offset_pct   = st.slider("Offset Use (% of residual)", 0, 30, 10)
 
     st.divider()
-    st.caption("All figures CAD unless noted.")
+
+    # ── Live Market Data (bottom of sidebar) ─────────────────────
+    st.markdown("### Live Market Data")
+    fx_status = "Live" if mkt["live"] else "Fallback"
+    st.markdown(f"""
+    <div style="background:#f1f5f9;border-radius:10px;padding:.8rem 1rem;
+                border:1px solid #e2e8f0;">
+      <div style="font-size:.68rem;color:#64748b;font-weight:700;
+                  letter-spacing:.08em;text-transform:uppercase;margin-bottom:.4rem">
+        Market Data ({fx_status}) · {mkt['ts']}
+      </div>
+      <div style="font-size:1rem;font-weight:700;color:#0f172a;margin:.2rem 0">
+        1 USD = {FX:.4f} CAD
+      </div>
+      <div style="font-size:.78rem;color:#334155;">
+        TRP price: CAD ${mkt['trp_price']:.2f}<br>
+        Market cap: CAD ${mkt['mktcap_cad_bn']:.1f}B
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
     st.caption("Sources: TC Energy 2024 SR · IPCC AR6 · NGFS P4 · Env. Canada · yfinance")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -493,31 +500,37 @@ cv45 = climate_var_dcf(ebitda_adj45, eal45, stranded45, tr45, pass_through)
 cv85 = climate_var_dcf(ebitda_adj85, eal85, stranded85, tr85, pass_through)
 
 # Primary displayed scenario
-show45 = scenario_mode != "RCP 8.5 Only"
-show85 = scenario_mode != "RCP 4.5 Only"
-cv_primary = cv85 if scenario_mode == "RCP 8.5 Only" else cv45
+show45 = "8.5" not in scenario_mode
+show85 = "4.5" not in scenario_mode or "Side" in scenario_mode
+cv_primary = cv85 if ("8.5" in scenario_mode and "Side" not in scenario_mode) else cv45
 
 rl = "HIGH" if cv_primary["cvar_pct"]>25 else ("MED" if cv_primary["cvar_pct"]>10 else "LOW")
 rc = {"HIGH":"b-hi","MED":"b-md","LOW":"b-lo"}[rl]
-rn = {"HIGH":"High Risk ▲","MED":"Medium Risk ◆","LOW":"Low Risk ●"}[rl]
+rn = {"HIGH":"High Risk","MED":"Medium Risk","LOW":"Low Risk"}[rl]
 e2030 = e_base_in*(1-r_comm)**max(2030-start_yr,0)
+
+# Global avoided cost metrics used across tabs
+cum_avoid = float(np.sum(tr45["avoided"] if show45 else tr85["avoided"]))
+net_capex = float(np.sum(tr45["capex_c"] - tr45["itc_c"]))
+roi       = cum_avoid / net_capex if net_capex > 0 else 0
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HERO BANNER
 # ══════════════════════════════════════════════════════════════════════════════
 live_tag = "hlive" if mkt["live"] else "htag"
+scenario_display = "Side-by-Side (RCP 4.5 + 8.5)" if "Side" in scenario_mode else scenario_mode.split(" — ")[0]
 st.markdown(f"""
 <div class="hero">
-  <h1>🛢️ TC Energy — Climate VaR Stress Test <span style="font-size:.9rem;font-weight:400;color:#475569">v3.0</span></h1>
+  <h1>TC Energy — Climate VaR Stress Test <span style="font-size:.9rem;font-weight:400;color:#94a3b8">v3.0</span></h1>
   <sub>Asset-Level Physical Risk Mapping · Emission Path Differential · RCP 4.5/8.5 Trade-off · TCFD-aligned DCF<br>
   93,700 km Pipeline Network · Canada · United States · Mexico</sub>
   <div class="htags">
-    <span class="{live_tag}">📊 1 USD = {FX:.4f} CAD {'(Live)' if mkt['live'] else '(Fallback)'}</span>
-    <span class="htag">🏗 {len(selected_assets)} Assets Selected  |  CAD ${sel_df['Value_CAD_B'].sum():.1f}B</span>
-    <span class="htag">📅 {start_yr} – {end_yr}  ({horizon}yr horizon)</span>
-    <span class="htag">{'⚡ Side-by-Side' if 'Side' in scenario_mode else scenario_mode}</span>
+    <span class="htag">1 USD = {FX:.4f} CAD {'(Live)' if mkt['live'] else '(Fallback)'}</span>
+    <span class="htag">{len(selected_assets)} Assets · CAD ${sel_df['Value_CAD_B'].sum():.1f}B</span>
+    <span class="htag">{start_yr} to {end_yr} ({horizon} yrs)</span>
+    <span class="htag">{scenario_display}</span>
     <span class="htag">NGFS: {ngfs_sel}</span>
-    <span class="htag">r = {r_comm*100:.2f}%/yr → −{tgt_pct}% by 2030</span>
+    <span class="htag">r = {r_comm*100:.2f}%/yr to -{tgt_pct}% by 2030</span>
     <span class="htag">Mkt Cap CAD ${mkt['mktcap_cad_bn']:.1f}B</span>
   </div>
 </div>
@@ -567,11 +580,11 @@ st.markdown("<br>", unsafe_allow_html=True)
 #  TABS
 # ══════════════════════════════════════════════════════════════════════════════
 tMap, tRCP, tTR, tCV, tRpt = st.tabs([
-    "🗺️  Asset Risk Map",
-    "⚡  RCP 4.5 vs 8.5",
-    "🏭  Transition Risk",
-    "📊  Climate VaR",
-    "📋  Full Report",
+    "Asset Risk Map",
+    "Climate Risk (RCP 4.5 vs 8.5)",
+    "Transition Risk",
+    "Climate VaR",
+    "Full Report",
 ])
 
 # ════════════════════════════════════════════════════════════════
@@ -580,7 +593,7 @@ tMap, tRCP, tTR, tCV, tRpt = st.tabs([
 with tMap:
     st.markdown('<div class="sec">Asset-Level Physical Risk Map — TC Energy Core Infrastructure</div>', unsafe_allow_html=True)
 
-    rcp_for_map = "rcp85" if scenario_mode == "RCP 8.5 Only" else "rcp45"
+    rcp_for_map = "rcp85" if ("8.5" in scenario_mode and "Side" not in scenario_mode) else "rcp45"
 
     col_map, col_tbl = st.columns([3,2])
     with col_map:
@@ -725,38 +738,38 @@ with tRCP:
     sc1, sc2 = st.columns(2)
     with sc1:
         st.markdown(f"""<div class="sc45">
-          <div class="sc-title" style="color:#1d4ed8">🟦 RCP 4.5 — High Transition · Medium Physical</div>
+          <div class="sc-title" style="color:#1d4ed8">RCP 4.5 — High Transition / Medium Physical</div>
           <table style="width:100%;font-size:.82rem;border-collapse:collapse">
-            <tr><td style="color:#475569;padding:3px 0">Policy / Carbon Price</td>
+            <tr><td style="color:#374151;padding:3px 0;width:55%">Policy / Carbon Price</td>
                 <td style="font-weight:600;color:#dc2626">HIGH (aggressive)</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">2030 Carbon Price</td>
-                <td style="font-weight:600">{carbon_price_2030} → ${interp(CARBON_PRICE_RCP45,end_yr):.0f}/t ({end_yr})</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">Physical Hazard Intensity</td>
-                <td style="font-weight:600;color:#d97706">MEDIUM ({rcp_phys_mult('rcp45',n-1,n):.2f}× base)</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">Primary Financial Impact</td>
-                <td style="font-weight:600">OPEX pressure · EBITDA margin erosion</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">Climate VaR</td>
+            <tr><td style="color:#374151;padding:3px 0">2030 Carbon Price</td>
+                <td style="font-weight:600;color:#0f172a">{carbon_price_2030} to ${interp(CARBON_PRICE_RCP45,end_yr):.0f}/t ({end_yr})</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">Physical Hazard Intensity</td>
+                <td style="font-weight:600;color:#d97706">MEDIUM ({rcp_phys_mult('rcp45',n-1,n):.2f}x base)</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">Primary Financial Impact</td>
+                <td style="font-weight:600;color:#0f172a">OPEX pressure / EBITDA margin erosion</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">Climate VaR</td>
                 <td style="font-weight:600;color:#dc2626">CAD ${cv45['cvar']:.1f}B ({cv45['cvar_pct']:.1f}% NPV)</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">VaR / Mkt Cap</td>
-                <td style="font-weight:600">{cv45['cvar_mktcap']:.1f}%</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">VaR / Mkt Cap</td>
+                <td style="font-weight:600;color:#0f172a">{cv45['cvar_mktcap']:.1f}%</td></tr>
           </table>
         </div>""", unsafe_allow_html=True)
     with sc2:
         st.markdown(f"""<div class="sc85">
-          <div class="sc-title" style="color:#dc2626">🟥 RCP 8.5 — Low Transition · Extreme Physical</div>
+          <div class="sc-title" style="color:#dc2626">RCP 8.5 — Low Transition / Extreme Physical</div>
           <table style="width:100%;font-size:.82rem;border-collapse:collapse">
-            <tr><td style="color:#475569;padding:3px 0">Policy / Carbon Price</td>
+            <tr><td style="color:#374151;padding:3px 0;width:55%">Policy / Carbon Price</td>
                 <td style="font-weight:600;color:#16a34a">LOW (slow policy)</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">2030 Carbon Price</td>
-                <td style="font-weight:600">{CARBON_PRICE_RCP85[2030]} → ${interp(CARBON_PRICE_RCP85,end_yr):.0f}/t ({end_yr})</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">Physical Hazard Intensity</td>
-                <td style="font-weight:600;color:#dc2626">EXTREME ({rcp_phys_mult('rcp85',n-1,n):.2f}× base)</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">Primary Financial Impact</td>
-                <td style="font-weight:600">Asset impairment · CAPEX repair surge</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">Climate VaR</td>
+            <tr><td style="color:#374151;padding:3px 0">2030 Carbon Price</td>
+                <td style="font-weight:600;color:#0f172a">{CARBON_PRICE_RCP85[2030]} to ${interp(CARBON_PRICE_RCP85,end_yr):.0f}/t ({end_yr})</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">Physical Hazard Intensity</td>
+                <td style="font-weight:600;color:#dc2626">EXTREME ({rcp_phys_mult('rcp85',n-1,n):.2f}x base)</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">Primary Financial Impact</td>
+                <td style="font-weight:600;color:#0f172a">Asset impairment / CAPEX repair surge</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">Climate VaR</td>
                 <td style="font-weight:600;color:#dc2626">CAD ${cv85['cvar']:.1f}B ({cv85['cvar_pct']:.1f}% NPV)</td></tr>
-            <tr><td style="color:#475569;padding:3px 0">VaR / Mkt Cap</td>
-                <td style="font-weight:600">{cv85['cvar_mktcap']:.1f}%</td></tr>
+            <tr><td style="color:#374151;padding:3px 0">VaR / Mkt Cap</td>
+                <td style="font-weight:600;color:#0f172a">{cv85['cvar_mktcap']:.1f}%</td></tr>
           </table>
         </div>""", unsafe_allow_html=True)
 
@@ -810,12 +823,16 @@ with tRCP:
               normalise(float(np.sum(rev_erosion))*0.3,vmax_dem*0.8),
               normalise(stranded85,max(stranded45,stranded85,0.001)),
               normalise(float(np.sum(tr85["imp_comm"])),vmax_ct)]
+    radar_palette = {
+        "RCP 4.5": {"line": "#3b82f6", "fill": "rgba(59,130,246,0.12)"},
+        "RCP 8.5": {"line": "#ef4444", "fill": "rgba(239,68,68,0.12)"},
+    }
     figR = go.Figure()
-    for vals, col, name in [(vals45,"#3b82f6","RCP 4.5"),(vals85,"#ef4444","RCP 8.5")]:
+    for vals, name in [(vals45,"RCP 4.5"),(vals85,"RCP 8.5")]:
         figR.add_trace(go.Scatterpolar(r=vals+[vals[0]], theta=categories+[categories[0]],
             fill="toself", name=name,
-            line=dict(color=col,width=2), fillcolor=col.replace("#","rgba(").replace(
-                "rgba(","rgba(") + ",0.12)" if False else col+"26"))
+            line=dict(color=radar_palette[name]["line"], width=2),
+            fillcolor=radar_palette[name]["fill"]))
     figR.update_layout(title="Risk Dimension Radar — RCP 4.5 vs RCP 8.5 (score 0–10)",
         polar=dict(radialaxis=dict(visible=True,range=[0,10])),
         height=360, showlegend=True,
@@ -847,46 +864,43 @@ with tTR:
     cf1,cf2,cf3 = st.columns(3)
     with cf1:
         st.markdown(f"""<div class="fbox" style="border-left-color:#f59e0b">
-<span style="color:#fbbf24">A. Emission Trajectory</span>
+<span style="color:#92400e;font-weight:700">A. Emission Trajectory</span>
 
-E_year = E_base × (1 − r)^(yr−{start_yr})
+E_year = E_base x (1 - r)^(yr-{start_yr})
 
-r = 1−(1−{tgt_pct}%)<sup>1/6</sup> = <b style="color:#4ade80">{r_comm*100:.3f}%/yr</b>
+r = 1-(1-{tgt_pct}%)^(1/6) = <b style="color:#166534">{r_comm*100:.3f}%/yr</b>
 
-E_{2030} = {e_base_in}×(1−{r_comm:.4f})^{max(2030-start_yr,0)}
-     = <b style="color:#4ade80">{e2030:.2f} Mt CO₂e</b>
+E_{2030} = {e_base_in}x(1-{r_comm:.4f})^{max(2030-start_yr,0)}
+     = <b style="color:#166534">{e2030:.2f} Mt CO2e</b>
 </div>""", unsafe_allow_html=True)
     with cf2:
         st.markdown(f"""<div class="fbox" style="border-left-color:#ef4444">
-<span style="color:#fca5a5">B. Net Financial Impact</span>
+<span style="color:#991b1b;font-weight:700">B. Net Financial Impact</span>
 
 Impact_yr =
-  (E_yr × CarbonPrice_yr)
+  (E_yr x CarbonPrice_yr)
   + CAPEX_abate
-  − ITC_{itc_rate}%
+  - ITC_{itc_rate}%
   + Offset_purch
 
-<span style="color:#64748b">CAPEX = ΔE × ${capex_per_mt:.0f}M/Mt
-ITC   = {itc_rate}% × CAPEX
-Offsets= {offset_pct}% residual × mkt price</span>
+<span style="color:#475569">CAPEX = delta-E x ${capex_per_mt:.0f}M/Mt
+ITC   = {itc_rate}% x CAPEX
+Offsets= {offset_pct}% residual x mkt price</span>
 </div>""", unsafe_allow_html=True)
     with cf3:
-        cum_avoid = float(np.sum(tr45["avoided"] if show45 else tr85["avoided"]))
-        net_capex = float(np.sum(tr45["capex_c"]-tr45["itc_c"]))
-        roi = cum_avoid/net_capex if net_capex>0 else 0
         st.markdown(f"""<div class="fbox" style="border-left-color:#22c55e">
-<span style="color:#4ade80">C. Path Differential</span>
+<span style="color:#14532d;font-weight:700">C. Path Differential</span>
 
-ΔImpact_yr = Impact_BAU − Impact_Comm
+Delta-Impact_yr = Impact_BAU - Impact_Comm
 
-<span style="color:#64748b">Cumulative:
-  CAD <b style="color:#4ade80">${cum_avoid:.2f}B</b>
+<span style="color:#475569">Cumulative:
+  CAD <b style="color:#166534">${cum_avoid:.2f}B</b>
 
 PV (@{wacc}% WACC):
-  CAD <b style="color:#4ade80">${avoid_pv:.2f}B</b>
+  CAD <b style="color:#166534">${avoid_pv:.2f}B</b>
 
 Abatement ROI:
-  <b style="color:#4ade80">{roi:.1f}×</b></span>
+  <b style="color:#166534">{roi:.1f}x</b></span>
 </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -974,7 +988,7 @@ Abatement ROI:
     NGFS Phase 4 · Canada Carbon Offset Credit System (COCES)</div>
     """, unsafe_allow_html=True)
 
-    with st.expander("📄 Full Transition Risk Data Table"):
+    with st.expander("Full Transition Risk Data Table"):
         tr_disp = tr45 if show45 else tr85
         df_t = pd.DataFrame({
             "Year": yr_range,
@@ -985,7 +999,7 @@ Abatement ROI:
             "Offset ($B)": tr_disp["oc_c"].round(3),
             "Net Impact ($B)": tr_disp["imp_comm"].round(3),
             "BAU Impact ($B)": tr_disp["imp_bau"].round(3),
-            "ΔImpact Avoided ($B)": tr_disp["avoided"].round(3),
+            "Avoided ($B)": tr_disp["avoided"].round(3),
             "Cumul. Avoided ($B)": np.cumsum(tr_disp["avoided"]).round(3),
         })
         st.dataframe(df_t, use_container_width=True, hide_index=True)
@@ -998,17 +1012,17 @@ with tCV:
     st.markdown('<div class="sec">Module C · Climate VaR — DCF Waterfall, Sensitivity & Formula Decomposition</div>', unsafe_allow_html=True)
 
     st.markdown(f"""<div class="fbox" style="border-left-color:#8b5cf6;font-size:.78rem">
-<span style="color:#c4b5fd">Climate VaR Master Formula (TCFD-aligned)</span>
+<span style="color:#4c1d95;font-weight:700">Climate VaR Master Formula (TCFD-aligned)</span>
 
-<b>Loss_Total</b> = (Emissions × ΔCarbonPrice × (1 − PassThrough%))
-            + Σ(AssetValue × RiskWeight × Damage%)
+<b>Loss_Total</b> = (Emissions x delta-CarbonPrice x (1 - PassThrough%))
+            + Sum(AssetValue x RiskWeight x Damage%)
 
 <b>Climate_VaR</b> = Loss_Total / MarketCap
 
-<span style="color:#64748b">PassThrough = {pass_through}%  (regulated tariff recovery)
+<span style="color:#475569">PassThrough = {pass_through}%  (regulated tariff recovery)
 Total Asset Value = CAD ${sel_df['Value_CAD_B'].sum():.1f}B  ({len(selected_assets)} assets)
 Market Cap = CAD ${mkt['mktcap_cad_bn']:.1f}B  (live: {'yes' if mkt['live'] else 'fallback'})
-WACC = {wacc}%  |  Horizon = {start_yr}–{end_yr}</span>
+WACC = {wacc}%  |  Horizon = {start_yr} to {end_yr}</span>
 </div>""", unsafe_allow_html=True)
 
     # Waterfall side by side
@@ -1105,18 +1119,18 @@ WACC = {wacc}%  |  Horizon = {start_yr}–{end_yr}</span>
 #  TAB 5 — FULL REPORT
 # ════════════════════════════════════════════════════════════════
 with tRpt:
-    st.markdown('<div class="sec">📋 TC Energy — Integrated Climate Risk Stress Test Report (v3.0)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec">TC Energy — Integrated Climate Risk Stress Test Report (v3.0)</div>', unsafe_allow_html=True)
 
     st.markdown(f"""
     #### Executive Summary
     TCFD-aligned stress test of **TC Energy Corporation (TSX/NYSE: TRP)** over **{horizon} years ({start_yr}–{end_yr})**.
 
     **v3.0 Upgrades:** Asset-level physical risk geo-modelling for {len(selected_assets)} assets across
-    Canada/US/Mexico · Live USD/CAD FX via yfinance (1 USD = {FX:.4f} CAD) · RCP 4.5 vs 8.5 risk trade-off
-    (transition-heavy vs physically-driven) · Loss_Total / MarketCap formula · 4-section professional sidebar.
+    Canada/US/Mexico — Live USD/CAD FX via yfinance (1 USD = {FX:.4f} CAD) — RCP 4.5 vs 8.5 risk trade-off
+    (transition-heavy vs physically-driven) — Loss_Total / MarketCap formula — 4-section professional sidebar.
 
-    **Active:** {'RCP 4.5 + 8.5 Side-by-Side' if 'Side' in scenario_mode else scenario_mode} ·
-    {ngfs_sel} NGFS · r = {r_comm*100:.2f}%/yr → E₂₀₃₀ = {e2030:.1f} Mt CO₂e · Pass-Through {pass_through}%
+    **Active scenario:** {'RCP 4.5 + 8.5 Side-by-Side' if 'Side' in scenario_mode else scenario_mode.split(' — ')[0]} ·
+    {ngfs_sel} NGFS · r = {r_comm*100:.2f}%/yr · E-2030 = {e2030:.1f} Mt CO2e · Pass-Through {pass_through}%
     ---
     """)
 
