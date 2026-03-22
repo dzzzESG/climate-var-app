@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v3.5
+TC Energy — Climate Risk Stress Testing Terminal  v3.6
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -25,7 +25,7 @@ def _df(df, **kw):
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="TRP Climate Stress Terminal",
+    page_title="TC Energy (TRP) Climate Stress Terminal",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -358,7 +358,10 @@ with st.sidebar:
       <div style="font-size:1.05rem;font-weight:700;color:#F1F5F9;letter-spacing:-.2px">
         TC Energy
       </div>
-      <div style="font-size:.7rem;color:#475569;margin-top:2px">
+      <div style="font-size:.7rem;color:#64748B;margin-top:1px">
+        TSX / NYSE: <span style="color:#94A3B8;font-weight:600">TRP</span>
+      </div>
+      <div style="font-size:.68rem;color:#475569;margin-top:2px">
         Climate Risk Stress Terminal
       </div>
     </div>""", unsafe_allow_html=True)
@@ -450,8 +453,8 @@ risk_color = {"High": "#DC2626", "Moderate": "#D97706", "Low": "#16A34A"}[risk_l
 # ── Page header ───────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="page-hdr">
-  <h1>TC Energy Climate Risk Stress Testing</h1>
-  <p>Asset-Level Valuation Sensitivity and Hazard Analysis — TCFD / IFRS S2 Aligned</p>
+  <h1>TC Energy Corporation — Climate Risk Stress Testing</h1>
+  <p>TSX/NYSE: TRP &nbsp;·&nbsp; Asset-Level Valuation Sensitivity and Hazard Analysis &nbsp;·&nbsp; TCFD / IFRS S2 Aligned</p>
 </div>
 <hr class="hdr-rule">
 """, unsafe_allow_html=True)
@@ -1622,8 +1625,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(f"""
 <div style="text-align:center;padding:.9rem 0;border-top:1px solid #E2E8F0;
             font-size:.73rem;color:#94A3B8">
-  TC Energy Climate Risk Stress Terminal &nbsp;|&nbsp;
-  Data: TRP 2024 Sustainability Report + ESG Data Sheet &nbsp;|&nbsp;
+  TC Energy Corporation (TSX/NYSE: TRP) — Climate Risk Stress Terminal &nbsp;|&nbsp;
+  Source: TC Energy 2024 Sustainability Report &amp; ESG Data Sheet &nbsp;|&nbsp;
   Live FX: {FX:.4f} CAD &nbsp;|&nbsp;
   {MKT['ts']} &nbsp;|&nbsp; TCFD / IFRS S2 Aligned
 </div>""", unsafe_allow_html=True)
