@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v4.3
+TC Energy — Climate Risk Stress Testing Terminal  v4.5
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -278,21 +278,34 @@ div[data-testid="stExpander"] {
             border-top: 1px solid #D1D5DB !important; text-align: justify; }
 
 /* ═══════════════════════════════════════════════════════════
-   PLOTLY CHARTS — SVG text override for dark mode
-   Plotly embeds text as SVG <text> elements with fill attributes.
-   CSS fill rules override inline SVG fill in modern browsers.
+   PLOTLY CHARTS — adaptive text colour via CSS SVG fill override
+   Light mode: all text #1E293B (near-black, high contrast on white)
+   Dark  mode: all text #93C5FD / #BAE6FD (sky blue, high contrast on dark)
    ═══════════════════════════════════════════════════════════ */
-
-/* Shared: give chart containers a subtle card background so text
-   always has a defined surface to sit on */
 .js-plotly-plot .plotly { border-radius: 8px; }
 
-/* ── Dark mode chart text → bright sky blue ────────────────── */
+/* ── LIGHT MODE — enforce near-black on all chart text ─────── */
+.js-plotly-plot .plotly .xtick text,
+.js-plotly-plot .plotly .ytick text        { fill: #1E293B !important; }
+.js-plotly-plot .plotly .xtitle text,
+.js-plotly-plot .plotly .ytitle text,
+.js-plotly-plot .plotly .g-xtitle text,
+.js-plotly-plot .plotly .g-ytitle text     { fill: #374151 !important; }
+.js-plotly-plot .plotly .gtitle text,
+.js-plotly-plot .plotly .g-title text      { fill: #0D2137 !important; }
+.js-plotly-plot .plotly .legend text,
+.js-plotly-plot .plotly .legendtext        { fill: #1E293B !important; }
+.js-plotly-plot .plotly .annotation-text,
+.js-plotly-plot .plotly .annotation text   { fill: #374151 !important; }
+.js-plotly-plot .plotly .number text,
+.js-plotly-plot .plotly .delta text        { fill: #0D2137 !important; }
+.js-plotly-plot .plotly .infolayer text    { fill: #374151 !important; }
+
+/* ── Dark mode chart text → bright sky blue (high contrast) ── */
 @media (prefers-color-scheme: dark) {
-  /* Axis tick labels */
   .js-plotly-plot .plotly .xtick text,
   .js-plotly-plot .plotly .ytick text {
-    fill: #93C5FD !important;
+    fill: #93C5FD !important;   /* sky blue ticks */
   }
   /* Axis titles */
   .js-plotly-plot .plotly .xtitle text,
@@ -356,7 +369,7 @@ div[data-testid="stExpander"] {
 /* Same rules for Streamlit's [data-theme="dark"] attribute */
 [data-theme="dark"] .js-plotly-plot .plotly .xtick text,
 [data-theme="dark"] .js-plotly-plot .plotly .ytick text {
-  fill: #93C5FD !important;
+  fill: #93C5FD !important;  /* sky blue */
 }
 [data-theme="dark"] .js-plotly-plot .plotly .xtitle text,
 [data-theme="dark"] .js-plotly-plot .plotly .ytitle text,
@@ -889,7 +902,7 @@ with tab1:
             text=[nm.split("(")[0].strip() for nm in names],
             textposition=["top center", "bottom center", "top center",
                           "bottom center", "bottom right"][:len(names)],
-            textfont=dict(size=10, color="#0D2137"),
+            textfont=dict(size=13, color="#0D2137"),
             customdata=list(zip(
                 [d["Value_B"] for d in ASSETS.values()],
                 types, hazard_labels, loss_pcts
@@ -923,7 +936,7 @@ with tab1:
             paper_bgcolor="rgba(0,0,0,0)",
             title=dict(
                 text=f"Bubble size = book value  |  Colour = physical loss severity  |  Scenario: {scenario_name.split(' — ')[0]}",
-                font=dict(size=10, color="#64748B"), x=0.01, y=0.01,
+                font=dict(size=10, color="#334155"), x=0.01, y=0.01,
             ),
         )
         _chart(fig_map)
@@ -993,13 +1006,13 @@ with tab2:
                    "increasing": {"color": "#DC2626"}, "decreasing": {"color": "#22C55E"}},
             gauge={
                 "axis": {"range": [0, g_max],
-                         "tickfont": {"size": 9, "color": "#374151"}},
+                         "tickfont": {"size": 12, "color": "#1E293B"}},
                 "bar": {"color": g_col, "thickness": 0.22},
-                "bgcolor": "#F1F5F9", "bordercolor": "#E2E8F0",
+                "bgcolor": "rgba(0,0,0,0)", "bordercolor": "rgba(0,0,0,0)",
                 "steps": [
-                    {"range": [0,           g_max * 0.33], "color": "#F0FDF4"},
-                    {"range": [g_max * 0.33, g_max * 0.67], "color": "#FFFBEB"},
-                    {"range": [g_max * 0.67, g_max],        "color": "#FEF2F2"},
+                    {"range": [0,           g_max * 0.33], "color": "rgba(22,163,74,0.42)"},
+                    {"range": [g_max * 0.33, g_max * 0.67], "color": "rgba(234,179,8,0.42)"},
+                    {"range": [g_max * 0.67, g_max],        "color": "rgba(220,38,38,0.40)"},
                 ],
                 "threshold": {"line": {"color": "#374151", "width": 2},
                               "thickness": 0.75, "value": g_max * 0.67},
@@ -1028,7 +1041,7 @@ with tab2:
             marker_line=dict(width=0),
             text=[f"CAD {v:.0f}M" for v in asset_dmg],
             textposition="outside",
-            textfont=dict(size=10, color="#374151"),
+            textfont=dict(size=12, color="#1E293B"),
         ))
         # Risk tolerance threshold lines — 1% and 5% of book value
         threshold_1pct = book_M * 0.01
@@ -1036,22 +1049,22 @@ with tab2:
         fig_sc.add_hline(
             y=threshold_1pct, line_dash="dot", line_color="#22C55E", line_width=1.5,
             annotation_text=f"1% book (CAD {threshold_1pct:.0f}M) — Low threshold",
-            annotation_font=dict(size=9, color="#16A34A"),
+            annotation_font=dict(size=11, color="#16A34A"),
             annotation_position="top right",
         )
         fig_sc.add_hline(
             y=threshold_5pct, line_dash="dash", line_color="#F59E0B", line_width=1.5,
             annotation_text=f"5% book (CAD {threshold_5pct:.0f}M) — Material threshold",
-            annotation_font=dict(size=9, color="#D97706"),
+            annotation_font=dict(size=11, color="#D97706"),
             annotation_position="top right",
         )
         fig_sc.update_layout(
             title=dict(text=f"Physical Damage Across Scenarios — {selected.split('(')[0].strip()}",
-                       font=dict(size=12, color="#0D2137")),
+                       font=dict(size=13, color="#0D2137")),
             height=320, template="plotly_white",
             yaxis=dict(title="Estimated Damage (CAD $M)",
-                       tickfont=dict(color="#374151")),
-            xaxis=dict(tickfont=dict(size=9, color="#374151"), tickangle=-15),
+                       tickfont=dict(size=12, color="#1E293B")),
+            xaxis=dict(tickfont=dict(size=12, color="#1E293B"), tickangle=-15),
             margin=dict(t=40, b=50, l=10, r=10),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             showlegend=False,
@@ -1073,20 +1086,20 @@ with tab2:
         marker_color=["#0D2137" if x[0] == selected.split("(")[0].strip() else "#93C5FD"
                       for x in cmp_df],
         text=[f"CAD {x[1]:.0f}M" for x in cmp_df],
-        textposition="outside", textfont=dict(size=10, color="#374151"),
+        textposition="outside", textfont=dict(size=12, color="#1E293B"),
     ))
     fig_cmp.add_trace(go.Bar(
         y=[x[0] for x in cmp_df], x=[x[2] for x in cmp_df],
         orientation="h", name="Net After Pass-Through",
         marker_color="#F59E0B", opacity=0.6,
         text=[f"{x[2]:.0f}" for x in cmp_df],
-        textposition="inside", textfont=dict(size=9, color="#374151"),
+        textposition="inside", textfont=dict(size=12, color="#1E293B"),
     ))
     fig_cmp.update_layout(
         height=280, template="plotly_white", barmode="overlay",
-        xaxis=dict(title="CAD $M", tickfont=dict(color="#374151")),
-        yaxis=dict(tickfont=dict(size=10, color="#374151")),
-        legend=dict(font=dict(size=10, color="#374151"), orientation="h", y=-0.25),
+        xaxis=dict(title="CAD $M", tickfont=dict(size=12, color="#1E293B")),
+        yaxis=dict(tickfont=dict(size=12, color="#1E293B")),
+        legend=dict(font=dict(size=12, color="#1E293B"), orientation="h", y=-0.25),
         margin=dict(t=10, b=60, l=10, r=80),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
@@ -1158,12 +1171,12 @@ with tab3:
             ))
         fig_area.update_layout(
             title=dict(text="Annual Carbon Cost Path (CAD $M/yr)",
-                       font=dict(size=12, color="#0D2137")),
+                       font=dict(size=13, color="#0D2137")),
             height=300, template="plotly_white",
-            xaxis=dict(title="Year", tickfont=dict(color="#374151")),
-            yaxis=dict(title="CAD $M", tickfont=dict(color="#374151")),
-            legend=dict(font=dict(size=10, color="#374151"),
-                        bgcolor="rgba(255,255,255,0.8)", bordercolor="#E2E8F0",
+            xaxis=dict(title="Year", tickfont=dict(size=12, color="#1E293B")),
+            yaxis=dict(title="CAD $M", tickfont=dict(size=12, color="#1E293B")),
+            legend=dict(font=dict(size=12, color="#1E293B"),
+                        bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
                         orientation="h", y=-0.25),
             margin=dict(t=40, b=60, l=10, r=10),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -1196,20 +1209,20 @@ with tab3:
             ))
         fig_cp.add_vline(x=2030, line_dash="dot", line_color="#64748B", line_width=1,
                          annotation_text="2030: $170/t (Federal target)",
-                         annotation_font=dict(size=9, color="#374151"),
+                         annotation_font=dict(size=12, color="#1E293B"),
                          annotation_position="top left")
         fig_cp.add_vline(x=end_year, line_dash="dot", line_color="#EF4444", line_width=1.5,
                          annotation_text=f"Horizon {end_year}",
-                         annotation_font=dict(size=9, color="#374151"),
+                         annotation_font=dict(size=12, color="#1E293B"),
                          annotation_position="top right")
         fig_cp.update_layout(
             title=dict(text="Carbon Price Paths — All Scenarios (CAD $/t CO2e)",
-                       font=dict(size=12, color="#0D2137")),
+                       font=dict(size=13, color="#0D2137")),
             height=300, template="plotly_white",
-            xaxis=dict(title="Year", tickfont=dict(color="#374151")),
-            yaxis=dict(title="CAD $/t CO2e", tickfont=dict(color="#374151")),
-            legend=dict(font=dict(size=9, color="#374151"),
-                        bgcolor="rgba(255,255,255,0.85)", bordercolor="#E2E8F0",
+            xaxis=dict(title="Year", tickfont=dict(size=12, color="#1E293B")),
+            yaxis=dict(title="CAD $/t CO2e", tickfont=dict(size=12, color="#1E293B")),
+            legend=dict(font=dict(size=12, color="#1E293B"),
+                        bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
                         orientation="v", x=1.02, y=1),
             margin=dict(t=40, b=20, l=10, r=130),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -1318,7 +1331,7 @@ with tab4:
                 stress_val_mit,
             ]],
             textposition="outside",
-            textfont=dict(size=10, color="#374151"),
+            textfont=dict(size=12, color="#1E293B"),
             decreasing=dict(marker_color="#EF4444"),
             increasing=dict(marker_color="#22C55E"),
             totals=dict(marker_color="#0D2137"),
@@ -1326,8 +1339,8 @@ with tab4:
         ))
         fig_wf.update_layout(
             height=420, template="plotly_white",
-            yaxis=dict(title="CAD $M", tickfont=dict(color="#374151")),
-            xaxis=dict(tickfont=dict(size=9, color="#374151")),
+            yaxis=dict(title="CAD $M", tickfont=dict(size=12, color="#1E293B")),
+            xaxis=dict(tickfont=dict(size=12, color="#1E293B")),
             margin=dict(t=20, b=20, l=10, r=20),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         )
@@ -1363,7 +1376,7 @@ with tab4:
             marker=dict(colors=pie_colors,
                         line=dict(color="white", width=2)),
             textinfo="percent",
-            textfont=dict(size=11, color="#374151"),
+            textfont=dict(size=12, color="#1E293B"),
             hovertemplate="%{label}: CAD %{value:.1f}M<extra></extra>",
         ))
         fig_pie.add_annotation(
@@ -1372,9 +1385,9 @@ with tab4:
             font=dict(size=11, color="#0D2137"),
         )
         fig_pie.update_layout(
-            title=dict(text="Loss Attribution (net)", font=dict(size=12, color="#0D2137")),
+            title=dict(text="Loss Attribution (net)", font=dict(size=13, color="#0D2137")),
             height=260, showlegend=True,
-            legend=dict(font=dict(size=10, color="#374151"),
+            legend=dict(font=dict(size=12, color="#1E293B"),
                         bgcolor="rgba(0,0,0,0)", orientation="h", y=-0.15),
             margin=dict(t=40, b=40, l=0, r=0),
             paper_bgcolor="rgba(0,0,0,0)",
@@ -1388,13 +1401,13 @@ with tab4:
             number={"suffix": "%", "font": {"size": 28, "color": "#0D2137"}},
             gauge={
                 "axis": {"range": [0, 40], "ticksuffix": "%",
-                         "tickfont": {"size": 9, "color": "#374151"}},
+                         "tickfont": {"size": 12, "color": "#1E293B"}},
                 "bar": {"color": risk_color, "thickness": 0.22},
-                "bgcolor": "#F1F5F9", "bordercolor": "#E2E8F0",
+                "bgcolor": "rgba(0,0,0,0)", "bordercolor": "rgba(0,0,0,0)",
                 "steps": [
-                    {"range": [0, 5],  "color": "#F0FDF4"},
-                    {"range": [5, 15], "color": "#FFFBEB"},
-                    {"range": [15, 40],"color": "#FEF2F2"},
+                    {"range": [0, 5],  "color": "rgba(22,163,74,0.42)"},
+                    {"range": [5, 15], "color": "rgba(234,179,8,0.42)"},
+                    {"range": [15, 40],"color": "rgba(220,38,38,0.40)"},
                 ],
                 "threshold": {"line": {"color": "#374151", "width": 2},
                               "thickness": 0.75, "value": 15},
@@ -1493,7 +1506,7 @@ with tab4:
             x=["Book\nValue","Carbon\nTax","Stranded\nCapital","Market\nAdj.","Physical\nDamage","Stress\nValue"],
             y=[book_M,-ct_n,-sl_n,-ma_n,-pl_n,sv],
             text=[f"${v:.0f}" for v in [book_M,-ct_n,-sl_n,-ma_n,-pl_n,sv]],
-            textposition="outside", textfont=dict(size=8, color="#374151"),
+            textposition="outside", textfont=dict(size=12, color="#1E293B"),
             decreasing=dict(marker_color="#EF4444"),
             increasing=dict(marker_color="#22C55E"),
             totals=dict(marker_color=nc),
@@ -1506,8 +1519,8 @@ with tab4:
         margin=dict(t=40, b=20, l=10, r=10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
-    compare_fig.update_yaxes(title_text="CAD $M", tickfont=dict(color="#374151"), row=1, col=1)
-    compare_fig.update_xaxes(tickfont=dict(size=8, color="#374151"))
+    compare_fig.update_yaxes(title_text="CAD $M", tickfont=dict(size=12, color="#1E293B"), row=1, col=1)
+    compare_fig.update_xaxes(tickfont=dict(size=12, color="#1E293B"))
     _chart(compare_fig)
 
     # Total Net Loss — All 5 Scenarios — BLUE=transition, ORANGE=physical
@@ -1554,13 +1567,13 @@ with tab4:
             x=row["Total"], y=row["Scenario"],
             text=f"CAD {row['Total']:.0f}M",
             xanchor="left", yanchor="middle", showarrow=False, xshift=6,
-            font=dict(size=9, color="#374151"),
+            font=dict(size=9, color="#1E293B"),
         )
     fig_sc2.update_layout(
         height=290, template="plotly_white", barmode="stack",
-        xaxis=dict(title="Net Loss (CAD $M)", tickfont=dict(color="#374151")),
-        yaxis=dict(tickfont=dict(size=9, color="#374151")),
-        legend=dict(font=dict(size=10, color="#374151"), orientation="h", y=-0.25),
+        xaxis=dict(title="Net Loss (CAD $M)", tickfont=dict(size=12, color="#1E293B")),
+        yaxis=dict(tickfont=dict(size=12, color="#1E293B")),
+        legend=dict(font=dict(size=12, color="#1E293B"), orientation="h", y=-0.25),
         margin=dict(t=10, b=65, l=10, r=100),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
