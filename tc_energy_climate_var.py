@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v4.6
+TC Energy — Climate Risk Stress Testing Terminal  v4.5
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -648,6 +648,38 @@ def run_scenario(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_se
     }
 
 
+@st.cache_data(ttl=600)
+def build_heatmap(asset_key, sc_key, dur, pt, haz, wacc_list, cp_list):
+    """Sensitivity heatmap: Climate VaR % across WACC × terminal carbon price grid.
+    Module-level function required — @st.cache_data cannot decorate inner functions."""
+    z = []
+    for w in wacc_list:
+        row = []
+        for cp_e in cp_list:
+            A_h  = ASSETS[asset_key]
+            SC_h = SCENARIOS[sc_key]
+            yrs_h = np.arange(2024, 2024 + dur + 1)
+            cp_h  = np.array([
+                CARBON_SCHEDULE.get(y, 80 + (cp_e - 80) * (y - 2024) / 26)
+                for y in yrs_h
+            ])
+            cct_h  = float((A_h["Emissions_Mt"] * cp_h).sum())
+            smul_h = 1.4 if SC_h["high_tax"] else 1.0
+            sl_h   = A_h["Value_B"] * 1000 * A_h["Stranded_F"] * smul_h * (dur / 26)
+            ma_h   = A_h["Value_B"] * 1000 * 0.04 if "Pipeline" in A_h["Type"] else 0
+            npt_h  = pt / 100
+            dr_h   = A_h["HazardPhys"].get(haz, {}).get(SC_h["key"], A_h["Phys"][SC_h["key"]])
+            pg_h   = A_h["Value_B"] * 1000 * dr_h * (dur / 26)
+            pn_h   = pg_h * (1 - npt_h)
+            tt_h   = (cct_h + sl_h + ma_h) * (1 - npt_h)
+            tl_h   = tt_h + pn_h
+            bm_h   = A_h["Value_B"] * 1000
+            cv_h   = (tl_h / bm_h) * 100   # raw VaR %, WACC affects hurdle but not loss magnitude
+            row.append(round(cv_h, 1))
+        z.append(row)
+    return z
+
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(f"""
@@ -1067,36 +1099,6 @@ with tab0:
 
         wacc_range  = [6, 7, 8, 9, 10, 11, 12]
         cp_end_range = [130, 170, 210, 250, 300, 345]
-
-        @st.cache_data(ttl=600)
-        def build_heatmap(asset_key, sc_key, dur, pt, haz, wacc_list, cp_list):
-            z = []
-            for w in wacc_list:
-                row = []
-                for cp_e in cp_list:
-                    # re-run with modified carbon price end
-                    A_h = ASSETS[asset_key]
-                    SC_h = SCENARIOS[sc_key]
-                    yrs_h = np.arange(2024, 2024 + dur + 1)
-                    cp_h  = np.array([CARBON_SCHEDULE.get(y, 80 + (cp_e-80)*(y-2024)/26) for y in yrs_h])
-                    cct_h = float((A_h["Emissions_Mt"] * cp_h).sum())
-                    smul_h = 1.4 if SC_h["high_tax"] else 1.0
-                    sl_h  = A_h["Value_B"]*1000*A_h["Stranded_F"]*smul_h*(dur/26)
-                    ma_h  = A_h["Value_B"]*1000*0.04 if "Pipeline" in A_h["Type"] else 0
-                    npt_h = pt/100
-                    dr_h  = A_h["HazardPhys"].get(haz,{}).get(SC_h["key"], A_h["Phys"][SC_h["key"]])
-                    pg_h  = A_h["Value_B"]*1000*dr_h*(dur/26)
-                    pn_h  = pg_h*(1-npt_h)
-                    tt_h  = (cct_h+sl_h+ma_h)*(1-npt_h)
-                    tl_h  = tt_h + pn_h
-                    bm_h  = A_h["Value_B"]*1000
-                    # discount with specified WACC
-                    disc  = sum(1/(1+w/100)**t for t in range(dur+1))
-                    adj_val = bm_h - tl_h * (1/(1+w/100)**(dur/2))
-                    cv_h  = (tl_h / bm_h) * 100
-                    row.append(round(cv_h, 1))
-                z.append(row)
-            return z
 
         heat_z = build_heatmap(selected, scenario_name, duration, pass_thru, hazard,
                                 wacc_range, cp_end_range)
