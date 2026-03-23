@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v3.6
+TC Energy — Climate Risk Stress Testing Terminal  v4
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -34,11 +34,101 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — Light mode defaults
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-page:       #F4F6F9;
+  --bg-card:       #FFFFFF;
+  --bg-card-alt:   #F8FAFC;
+  --bg-card-sel:   #EFF6FF;
+  --bg-note:       #F0F9FF;
+  --bg-tab-bar:    #E8EDF2;
+  --bg-tab-active: #FFFFFF;
+
+  --border:        #E2E8F0;
+  --border-md:     #D1D5DB;
+  --border-note:   #0EA5E9;
+
+  --text-h:        #0D2137;   /* headings, card values */
+  --text-body:     #374151;   /* body paragraphs */
+  --text-sec:      #64748B;   /* labels, captions */
+  --text-muted:    #94A3B8;   /* sub-labels */
+  --text-note:     #0C4A6E;   /* note box text */
+  --text-note-b:   #0369A1;   /* note box bold */
+
+  --navy:          #0D2137;   /* brand navy — sidebar & accent */
+  --navy-mid:      #1E3A5F;
+  --navy-light:    #E8EDF2;
+
+  --hdr-rule:      2px solid #0D2137;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK MODE — OS preference
+   ═══════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page:       #0F172A;
+    --bg-card:       #1E293B;
+    --bg-card-alt:   #162032;
+    --bg-card-sel:   #1E3A5F;
+    --bg-note:       #0C2340;
+    --bg-tab-bar:    #1E293B;
+    --bg-tab-active: #334155;
+
+    --border:        #334155;
+    --border-md:     #475569;
+    --border-note:   #0EA5E9;
+
+    --text-h:        #F1F5F9;
+    --text-body:     #CBD5E1;
+    --text-sec:      #94A3B8;
+    --text-muted:    #64748B;
+    --text-note:     #BAE6FD;
+    --text-note-b:   #7DD3FC;
+
+    --navy-light:    #1E293B;
+    --hdr-rule:      2px solid #3B82F6;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK MODE — Streamlit theme override (via data-theme attr)
+   Catches Streamlit dark mode even when OS is in light mode
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg-page:       #0F172A;
+  --bg-card:       #1E293B;
+  --bg-card-alt:   #162032;
+  --bg-card-sel:   #1E3A5F;
+  --bg-note:       #0C2340;
+  --bg-tab-bar:    #1E293B;
+  --bg-tab-active: #334155;
+  --border:        #334155;
+  --border-md:     #475569;
+  --border-note:   #0EA5E9;
+  --text-h:        #F1F5F9;
+  --text-body:     #CBD5E1;
+  --text-sec:      #94A3B8;
+  --text-muted:    #64748B;
+  --text-note:     #BAE6FD;
+  --text-note-b:   #7DD3FC;
+  --navy-light:    #1E293B;
+  --hdr-rule:      2px solid #3B82F6;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════ */
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-.main  { background: #F4F6F9; }
+.main  { background: var(--bg-page) !important; }
 .block-container { padding: 1.8rem 2.4rem 2rem; }
 
-/* Sidebar */
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR — always dark navy, no light-mode flip
+   ═══════════════════════════════════════════════════════════ */
 section[data-testid="stSidebar"] { background: #0D2137 !important; }
 section[data-testid="stSidebar"] * { color: #CBD5E1 !important; }
 section[data-testid="stSidebar"] .stSelectbox label,
@@ -51,13 +141,10 @@ section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.08) !impor
 section[data-testid="stSidebar"] .stSelectbox > div > div {
   background: #1E3A5F !important; border-color: #2D5A8C !important; color: #E2E8F0 !important;
 }
-
-/* Page header */
-.page-hdr h1 { font-size: 1.6rem; font-weight: 700; color: #0D2137; margin: 0 0 .2rem; letter-spacing: -.4px; }
-.page-hdr p  { font-size: .88rem; color: #64748B; margin: 0; }
-.hdr-rule    { border: none; border-top: 2px solid #0D2137; margin: .8rem 0 1.5rem; }
-
-/* Sidebar section label */
+section[data-testid="stSidebar"] input[type="number"] {
+  color: #F1F5F9 !important; background: #1E3A5F !important;
+  border: 1px solid #2D5A8C !important; border-radius: 6px !important; font-weight: 600 !important;
+}
 .sb-lbl {
   font-size: .67rem; font-weight: 700; color: #475569;
   text-transform: uppercase; letter-spacing: .1em;
@@ -65,12 +152,25 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
   padding-top: 1rem; margin: 1rem 0 .3rem;
 }
 
-/* KPI cards */
-.kpi { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: .95rem 1.2rem; }
+/* ═══════════════════════════════════════════════════════════
+   PAGE HEADER
+   ═══════════════════════════════════════════════════════════ */
+.page-hdr h1 { font-size: 1.6rem; font-weight: 700; color: var(--text-h); margin: 0 0 .2rem; letter-spacing: -.4px; }
+.page-hdr p  { font-size: .88rem; color: var(--text-sec); margin: 0; }
+.hdr-rule    { border: none; border-top: var(--hdr-rule); margin: .8rem 0 1.5rem; }
+
+/* ═══════════════════════════════════════════════════════════
+   KPI CARDS
+   ═══════════════════════════════════════════════════════════ */
+.kpi {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: .95rem 1.2rem;
+}
 .kpi-dark { background: #0D2137; border-radius: 10px; padding: .95rem 1.2rem; }
-.kpi-lbl  { font-size: .66rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
-.kpi-val  { font-size: 1.45rem; font-weight: 700; color: #0D2137; line-height: 1.1; }
-.kpi-sub  { font-size: .73rem; color: #94A3B8; margin-top: 3px; }
+.kpi-lbl  { font-size: .66rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+.kpi-val  { font-size: 1.45rem; font-weight: 700; color: var(--text-h); line-height: 1.1; }
+.kpi-sub  { font-size: .73rem; color: var(--text-muted); margin-top: 3px; }
 .kpi-dark .kpi-lbl { color: #475569; }
 .kpi-dark .kpi-val { color: #F1F5F9; }
 .kpi-dark .kpi-sub { color: #334155; }
@@ -79,73 +179,99 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
 .kpi-pos  { border-left: 3px solid #22C55E; }
 .kpi-inf  { border-left: 3px solid #3B82F6; }
 
-/* Section title */
-.sec { font-size: .98rem; font-weight: 600; color: #0D2137;
-       border-bottom: 2px solid #E2E8F0; padding-bottom: .55rem; margin-bottom: 1.15rem; }
+/* ═══════════════════════════════════════════════════════════
+   SECTION TITLE
+   ═══════════════════════════════════════════════════════════ */
+.sec {
+  font-size: .98rem; font-weight: 600;
+  color: var(--text-h);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: .55rem; margin-bottom: 1.15rem;
+}
 
-/* Info tiles */
-.itile { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: .85rem 1.05rem; }
-.itile .il { font-size: .65rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
-.itile .iv { font-size: 1.25rem; font-weight: 700; color: #0D2137; }
-.itile .is { font-size: .72rem; color: #94A3B8; margin-top: 2px; }
+/* ═══════════════════════════════════════════════════════════
+   INFO TILES
+   ═══════════════════════════════════════════════════════════ */
+.itile { background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px; padding: .85rem 1.05rem; }
+.itile .il { font-size: .65rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.itile .iv { font-size: 1.25rem; font-weight: 700; color: var(--text-h); }
+.itile .is { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
 
-/* Asset card */
-.a-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px;
+/* ═══════════════════════════════════════════════════════════
+   ASSET CARDS
+   ═══════════════════════════════════════════════════════════ */
+.a-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
            padding: .6rem .9rem; margin-bottom: .45rem; }
-.a-card.sel { background: #EFF6FF; border-color: #0D2137; border-width: 2px; }
-.a-name { font-size: .79rem; font-weight: 600; color: #0D2137; margin-bottom: 2px; }
-.a-meta { display: flex; gap: 14px; font-size: .7rem; color: #64748B; }
+.a-card.sel { background: var(--bg-card-sel); border-color: #3B82F6; border-width: 2px; }
+.a-name { font-size: .79rem; font-weight: 600; color: var(--text-h); margin-bottom: 2px; }
+.a-meta { display: flex; gap: 14px; font-size: .7rem; color: var(--text-sec); }
 
-/* Note box */
-.note { background: #F0F9FF; border-left: 3px solid #0EA5E9; border-radius: 0 6px 6px 0;
-        padding: .65rem 1rem; font-size: .8rem; color: #0C4A6E; margin-top: .6rem; }
-.note b { color: #0369A1; }
+/* ═══════════════════════════════════════════════════════════
+   NOTE & METHOD BOXES
+   ═══════════════════════════════════════════════════════════ */
+.note { background: var(--bg-note); border-left: 3px solid var(--border-note);
+        border-radius: 0 6px 6px 0; padding: .65rem 1rem;
+        font-size: .8rem; color: var(--text-note); margin-top: .6rem; }
+.note b { color: var(--text-note-b); }
+.mbox { background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px;
+        padding: .75rem 1rem; font-size: .78rem; color: var(--text-body); margin-top: .5rem; }
 
-/* Method box */
-.mbox { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
-        padding: .75rem 1rem; font-size: .78rem; color: #374151; margin-top: .5rem; }
-
-/* Tabs — fill full width equally */
+/* ═══════════════════════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
-  background: #E8EDF2; border-radius: 9px; padding: 4px; gap: 3px;
+  background: var(--bg-tab-bar); border-radius: 9px; padding: 4px; gap: 3px;
   display: flex !important;
 }
 .stTabs [data-baseweb="tab"] {
   border-radius: 6px; padding: 8px 4px; font-size: .84rem; font-weight: 500;
-  color: #64748B; flex: 1 1 0 !important; text-align: center !important;
-  min-width: 0 !important; white-space: nowrap;
+  color: var(--text-sec) !important; flex: 1 1 0 !important;
+  text-align: center !important; min-width: 0 !important; white-space: nowrap;
 }
 .stTabs [aria-selected="true"] {
-  background: white !important; color: #0D2137 !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  background: var(--bg-tab-active) !important;
+  color: var(--text-h) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
 
-/* WACC number input — black text */
-section[data-testid="stSidebar"] input[type="number"] {
-  color: #0D2137 !important; background: #F8FAFC !important;
-  border: 1px solid #CBD5E1 !important; border-radius: 6px !important;
-  font-weight: 600 !important;
+/* ═══════════════════════════════════════════════════════════
+   EXPANDER
+   ═══════════════════════════════════════════════════════════ */
+div[data-testid="stExpander"] {
+  border: 1px solid var(--border) !important;
+  border-radius: 9px !important;
 }
 
-/* Expander */
-div[data-testid="stExpander"] { border: 1px solid #E2E8F0 !important; border-radius: 9px !important; }
-
-/* Download */
+/* ═══════════════════════════════════════════════════════════
+   DOWNLOAD BUTTON
+   ═══════════════════════════════════════════════════════════ */
 .stDownloadButton button { background: #0D2137 !important; color: #F1F5F9 !important;
   border: none !important; border-radius: 6px !important; font-weight: 600 !important;
   font-size: .82rem !important; }
 .stDownloadButton button:hover { background: #1E3A5F !important; }
 
-/* Formal report */
-.rpt { background:#FFFFFF; padding:44px 52px; border:1px solid #D1D5DB; border-radius:8px;
-       box-shadow:0 2px 8px rgba(0,0,0,.05); font-family:'Georgia',serif; color:#111827; }
-.rpt h2 { color:#0D2137; font-size:21px; text-transform:uppercase; letter-spacing:.4px; margin:0 0 5px; }
-.rpt h3 { color:#0D2137; font-size:15px; border-bottom:1px solid #0D2137;
-          padding-bottom:4px; margin:26px 0 9px; }
-.rpt p, .rpt li { font-size:13.5px; line-height:1.75; color:#1F2937; }
-.rpt .rec { background:#F3F4F6; border-left:4px solid #0D2137; padding:14px 18px 14px 22px; }
-.rpt .ftr { font-size:11px; color:#9CA3AF; margin-top:36px; padding-top:12px;
-            border-top:1px solid #D1D5DB; text-align:justify; }
+/* ═══════════════════════════════════════════════════════════
+   FORMAL REPORT (Tab 5) — stays on white/near-white in all modes
+   for "printed document" aesthetic; only subtle dark-mode tint
+   ═══════════════════════════════════════════════════════════ */
+.rpt {
+  background: var(--bg-card);
+  padding: 44px 52px; border: 1px solid var(--border-md);
+  border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  font-family: 'Georgia', serif; color: var(--text-body);
+}
+.rpt h2 { color: var(--text-h); font-size: 21px; text-transform: uppercase; letter-spacing: .4px; margin: 0 0 5px; }
+.rpt h3 { color: var(--text-h); font-size: 15px; border-bottom: 1px solid var(--border);
+          padding-bottom: 4px; margin: 26px 0 9px; }
+.rpt p, .rpt li { font-size: 13.5px; line-height: 1.75; color: var(--text-body); }
+.rpt .rec { background: var(--bg-card-alt); border-left: 4px solid #3B82F6; padding: 14px 18px 14px 22px; }
+.rpt .ftr { font-size: 11px; color: var(--text-muted); margin-top: 36px; padding-top: 12px;
+            border-top: 1px solid var(--border); text-align: justify; }
+
+/* ═══════════════════════════════════════════════════════════
+   DATAFRAME — force readable text in dark mode
+   ═══════════════════════════════════════════════════════════ */
+[data-testid="stDataFrame"] { border-radius: 8px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -358,8 +484,8 @@ with st.sidebar:
       <div style="font-size:1.05rem;font-weight:700;color:#F1F5F9;letter-spacing:-.2px">
         TC Energy
       </div>
-      <div style="font-size:.7rem;color:#64748B;margin-top:1px">
-        TSX / NYSE: <span style="color:#94A3B8;font-weight:600">TRP</span>
+      <div style="font-size:.7rem;color:var(--text-sec);margin-top:1px">
+        TSX / NYSE: <span style="color:var(--text-muted);font-weight:600">TRP</span>
       </div>
       <div style="font-size:.68rem;color:#475569;margin-top:2px">
         Climate Risk Stress Terminal
@@ -367,26 +493,54 @@ with st.sidebar:
     </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="sb-lbl">Asset Selection</div>', unsafe_allow_html=True)
-    selected = st.selectbox("Asset", list(ASSETS.keys()), label_visibility="collapsed")
+    selected = st.selectbox(
+        "Asset", list(ASSETS.keys()), label_visibility="collapsed",
+        help="Select a TC Energy asset to analyse. Each asset has unique geographic hazard "
+             "exposure, Scope 1 emission intensity, regulated pass-through rates, and "
+             "carrying values from the 2023 Annual Report.")
     A = ASSETS[selected]
 
     st.markdown('<div class="sb-lbl">Climate Scenario</div>', unsafe_allow_html=True)
-    scenario_name = st.selectbox("Scenario", list(SCENARIOS.keys()), index=0,
-                                  label_visibility="collapsed")
+    scenario_name = st.selectbox(
+        "Scenario", list(SCENARIOS.keys()), index=0,
+        label_visibility="collapsed",
+        help="RCP 4.5 / NGFS Net Zero → Orderly transition: high carbon prices, "
+             "moderate physical damage. RCP 8.5 / NGFS Current Policies → Disorderly: "
+             "slow policy response, extreme physical hazard intensification. "
+             "NGFS Delayed Transition → a 'policy cliff' scenario — low risk now, "
+             "sharp late-decade cost surge.")
     SC = SCENARIOS[scenario_name]
 
     st.markdown('<div class="sb-lbl">Stress Horizon</div>', unsafe_allow_html=True)
     st.caption("Analysis period: 2024 to 2050")
-    duration = st.slider("Duration (years)", 1, 26, 10, label_visibility="collapsed")
+    duration = st.slider(
+        "Duration (years)", 1, 26, 10, label_visibility="collapsed",
+        help="Length of the forward stress window. Longer horizons amplify both "
+             "carbon cost accumulation and physical damage probability. TCFD recommends "
+             "short (<5 yr), medium (5–15 yr), and long (>15 yr) horizon disclosure.")
     end_year = 2024 + duration
 
     st.markdown('<div class="sb-lbl">Physical Hazard Focus</div>', unsafe_allow_html=True)
-    hazard = st.selectbox("Hazard", A["Hazards"], label_visibility="collapsed")
+    hazard = st.selectbox(
+        "Hazard", A["Hazards"], label_visibility="collapsed",
+        help="Each hazard has a distinct damage rate calibrated to the asset's "
+             "geographic location using IPCC AR6 WG2 regional projections and "
+             "Swiss Re NatCat energy sector benchmarks. Selecting a hazard not "
+             "present at a given location would return zero — those pairings "
+             "have been removed from the dropdown.")
 
     st.markdown('<div class="sb-lbl">Financial Assumptions</div>', unsafe_allow_html=True)
-    wacc       = st.number_input("WACC (%)", value=8.5, step=0.1, format="%.1f") / 100
-    pass_thru  = st.slider("Cost Pass-Through (%)", 0, 100, int(A["PassThru"] * 100),
-                            help="% of carbon/physical costs recovered via regulated tariffs")
+    wacc = st.number_input(
+        "WACC (%)", value=8.5, step=0.1, format="%.1f",
+        help="Weighted Average Cost of Capital used to discount future cash flows. "
+             "TC Energy's 2023 regulated WACC was ~7.9%. Under advanced ESG valuation "
+             "frameworks (e.g. MSCI Climate VaR), high-emission assets may attract a "
+             "'Climate Risk Premium' of 50–150 bps, raising effective WACC to 9–10%.") / 100
+    pass_thru  = st.slider(
+        "Cost Pass-Through (%)", 0, 100, int(A["PassThru"] * 100),
+        help="% of carbon and physical costs recovered through regulated shipper tariffs "
+             "or insurance. TC Energy's NEB/FERC-regulated pipelines recover ~65%; "
+             "Bruce Power (IESO-contracted) recovers ~85%. Unregulated assets recover less.")
 
     st.divider()
     live_lbl = "Live" if MKT["live"] else "Fallback"
@@ -395,12 +549,12 @@ with st.sidebar:
                 border:1px solid #1E3A5F;">
       <div style="font-size:.63rem;font-weight:700;text-transform:uppercase;
                   letter-spacing:.09em;color:#334155;margin-bottom:.4rem">
-        Market Data ({live_lbl}) — {MKT['ts']}
+        Market Data ({live_lbl}) &mdash; {MKT['ts']}
       </div>
       <div style="font-size:.92rem;font-weight:700;color:#E2E8F0;margin-bottom:.15rem">
         1 USD = {FX:.4f} CAD
       </div>
-      <div style="font-size:.74rem;color:#475569;line-height:1.8">
+      <div style="font-size:.74rem;color:var(--text-muted);line-height:1.8">
         TRP price: CAD ${MKT['trp_px']:.2f}<br>
         Market cap: CAD ${MKT['mktcap_bn']:.1f}B
       </div>
@@ -458,6 +612,52 @@ st.markdown("""
 </div>
 <hr class="hdr-rule">
 """, unsafe_allow_html=True)
+
+# ── Methodology & Data Sources expander ──────────────────────────────────────
+with st.expander("Methodology & Data Sources — Traceability Reference"):
+    mc1, mc2, mc3 = st.columns(3)
+    with mc1:
+        st.markdown("""
+**Physical Risk Model**
+
+`EAL = AssetValue × DamageRate(h,s) × (Horizon / 26)`
+
+- Damage rates are **hazard-specific** and **scenario-specific**, derived from:
+  - IPCC AR6 WG2 Ch. 11–12 (North America) and Ch. 13–14 (Central America)
+  - Swiss Re NatCat Service — energy infrastructure loss benchmarks
+  - AIR Worldwide — pipeline sector event loss tables
+- RCP 4.5 ≈ SSP2-4.5 (~2°C); RCP 8.5 ≈ SSP5-8.5 (~4°C)
+- Assets without a given hazard exposure (e.g. Bruce Power / Hurricane) are excluded from that hazard's dropdown
+""")
+    with mc2:
+        st.markdown("""
+**Transition Risk Model**
+
+`Transition Loss = (Carbon Tax + Stranded Asset + Market Adj.) × (1 − Pass-Through%)`
+
+- **Carbon Tax:** Emissions_Mt × Canada Federal Carbon Price Schedule (actual 2024–2030: $80→$170/t; ECCC 2024)
+- Post-2030 extrapolated by scenario using NGFS Phase 4 (2023) price pathways (Net Zero: USD $250/t; Delayed: USD $130/t)
+- **Stranded Asset Factor:** Asset-specific, ranging 2% (Bruce Power, IESO-contracted to 2064) to 22% (Keystone, exposed to oil demand erosion)
+- **Pass-Through:** NEB/FERC-regulated pipelines ~65%; nuclear (IESO) ~85%
+""")
+    with mc3:
+        st.markdown("""
+**Asset Data Sources**
+
+| Asset | Primary Source |
+|---|---|
+| NGTL System | TC Energy 2024 Sustainability Report |
+| Coastal GasLink | TC Energy ESG Data Sheet 2024 |
+| Keystone Pipeline | TC Energy Annual Report 2023 |
+| Bruce Power | Bruce Power 2023 Annual Report |
+| Mexico Gas Pipelines | TC Energy Q3 2024 MD&A |
+
+**Market Data:** Live FX and market cap via yfinance (TRP, CAD=X)
+
+**Compliance Framework:** TCFD 2021 Recommendations · IFRS S2 Climate-related Disclosures · OSFI Guideline B-15
+""")
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ── KPI Row 1 ─────────────────────────────────────────────────────────────────
 r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(5)
@@ -626,7 +826,7 @@ with tab1:
                 <span>CAD {d['Value_B']}B</span>
                 <span style="color:#EF4444;font-weight:600">Est. loss: CAD {pl:.0f}M</span>
               </div>
-              <div style="font-size:.68rem;color:#94A3B8;margin-top:3px">{d['Note']}</div>
+              <div style="font-size:.68rem;color:var(--text-muted);margin-top:3px">{d['Note']}</div>
             </div>""", unsafe_allow_html=True)
 
         st.markdown(f"""
@@ -711,6 +911,21 @@ with tab2:
             textposition="outside",
             textfont=dict(size=10, color="#374151"),
         ))
+        # Risk tolerance threshold lines — 1% and 5% of book value
+        threshold_1pct = book_M * 0.01
+        threshold_5pct = book_M * 0.05
+        fig_sc.add_hline(
+            y=threshold_1pct, line_dash="dot", line_color="#22C55E", line_width=1.5,
+            annotation_text=f"1% book (CAD {threshold_1pct:.0f}M) — Low threshold",
+            annotation_font=dict(size=9, color="#16A34A"),
+            annotation_position="top right",
+        )
+        fig_sc.add_hline(
+            y=threshold_5pct, line_dash="dash", line_color="#F59E0B", line_width=1.5,
+            annotation_text=f"5% book (CAD {threshold_5pct:.0f}M) — Material threshold",
+            annotation_font=dict(size=9, color="#D97706"),
+            annotation_position="top right",
+        )
         fig_sc.update_layout(
             title=dict(text=f"Physical Damage Across Scenarios — {selected.split('(')[0].strip()}",
                        font=dict(size=12, color="#0D2137")),
@@ -941,24 +1156,47 @@ with tab4:
 
     w1, w2 = st.columns([3, 2])
     with w1:
+        # Mitigation CAPEX input — how much the company could invest to reduce losses
+        mit_capex_input = st.slider(
+            "Mitigation CAPEX assumption (CAD $M)",
+            min_value=0, max_value=int(book_M * 0.15),
+            value=int(min(book_M * 0.04, 500)),
+            step=25,
+            help="Hypothetical decarbonisation or asset-hardening capital expenditure. "
+                 "TC Energy's ESG Data Sheet (2024) reports ~CAD $870M/yr in low-carbon "
+                 "CAPEX. This 'positive bar' shows how proactive investment can offset "
+                 "climate losses — turning the model from pure risk assessment to "
+                 "investment guidance.")
+        # Value recovery from mitigation: estimated 60% recovery efficiency on climate losses
+        # (industry benchmark: BNEF 2023 — $1 of mitigation CAPEX recovers ~$0.5–0.7 of avoided loss)
+        mitigation_recovery = mit_capex_input * 0.60
+        stress_val_mit = max(stress_val_M + mitigation_recovery - mit_capex_input, 0)
+
         fig_wf = go.Figure(go.Waterfall(
             orientation="v",
-            measure=["absolute", "relative", "relative", "relative", "relative", "total"],
+            measure=["absolute", "relative", "relative", "relative", "relative",
+                     "relative", "relative", "total"],
             x=["Baseline\nBook Value", "Carbon Tax\n(net)", "Stranded\nCapital (net)",
-               "Market\nAdj. (net)", "Physical\nDamage (net)", "Stress-Adjusted\nValue"],
+               "Market\nAdj. (net)", "Physical\nDamage (net)",
+               "Mitigation\nCAPEX Cost", "Avoided\nLoss Recovery",
+               "Stress-Adjusted\nValue"],
             y=[book_M,
                -(cum_carbon_tax * (1 - net_pass_thru)),
                -(stranded_loss  * (1 - net_pass_thru)),
                -(mkt_adj        * (1 - net_pass_thru)),
                -phys_loss_net,
-               max(stress_val_M, 0)],
+               -mit_capex_input,
+               +mitigation_recovery,
+               stress_val_mit],
             text=[f"${v:.0f}M" for v in [
                 book_M,
                 -(cum_carbon_tax*(1-net_pass_thru)),
                 -(stranded_loss*(1-net_pass_thru)),
                 -(mkt_adj*(1-net_pass_thru)),
                 -phys_loss_net,
-                max(stress_val_M, 0)
+                -mit_capex_input,
+                +mitigation_recovery,
+                stress_val_mit,
             ]],
             textposition="outside",
             textfont=dict(size=10, color="#374151"),
@@ -968,13 +1206,26 @@ with tab4:
             connector=dict(line=dict(color="#CBD5E1", width=1.5, dash="dot")),
         ))
         fig_wf.update_layout(
-            height=400, template="plotly_white",
+            height=420, template="plotly_white",
             yaxis=dict(title="CAD $M", tickfont=dict(color="#374151")),
-            xaxis=dict(tickfont=dict(size=10, color="#374151")),
+            xaxis=dict(tickfont=dict(size=9, color="#374151")),
             margin=dict(t=20, b=20, l=10, r=20),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         )
         _chart(fig_wf)
+        # 3. Climate-Adjusted WACC note
+        climate_wacc_premium = min(abs(cvar_pct) * 0.015, 1.5)   # 1.5 bps per % VaR, capped 150 bps
+        st.markdown(f"""
+        <div class="mbox" style="font-size:.77rem">
+          <b>Climate-Adjusted WACC (Forward-Looking):</b> Applied WACC = {wacc*100:.1f}%.
+          Under frontier ESG valuation frameworks (MSCI Climate VaR, PCAF), high-emission
+          assets carry a <i>Climate Risk Premium</i> proportional to their VaR exposure.
+          For this asset at {abs(cvar_pct):.1f}% VaR, the estimated premium is
+          <b>+{climate_wacc_premium:.2f}%</b>, implying an adjusted rate of
+          <b>{(wacc*100 + climate_wacc_premium):.2f}%</b>.
+          Future iterations of this model will apply a dynamic climate-adjusted discount
+          rate, where the cost of capital increases proportionally to Scope 1 emission intensity.
+        </div>""", unsafe_allow_html=True)
 
     with w2:
         # Loss attribution donut
@@ -1080,16 +1331,16 @@ with tab4:
         <div style="background:{nb};border:{outline};border-radius:10px;padding:1rem 1.1rem;">
           <div style="font-size:.72rem;font-weight:700;color:{nc};text-transform:uppercase;
                       letter-spacing:.07em;margin-bottom:4px">{ns}{badge}</div>
-          <div style="font-size:.68rem;color:#64748B;margin-bottom:.6rem">
+          <div style="font-size:.68rem;color:var(--text-sec);margin-bottom:.6rem">
             {sc_d['ipcc_ref']} &nbsp;&middot;&nbsp; {sc_d['warming']}</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.6rem">
-            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
-              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Climate VaR</div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid var(--border)">
+              <div style="font-size:.6rem;color:var(--text-sec);font-weight:600;text-transform:uppercase">Climate VaR</div>
               <div style="font-size:1.05rem;font-weight:700;color:#DC2626">-{cv_s:.1f}%</div>
             </div>
-            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #E2E8F0">
-              <div style="font-size:.6rem;color:#64748B;font-weight:600;text-transform:uppercase">Net Loss</div>
-              <div style="font-size:1.05rem;font-weight:700;color:#0D2137">CAD {tot_s:.0f}M</div>
+            <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid var(--border)">
+              <div style="font-size:.6rem;color:var(--text-sec);font-weight:600;text-transform:uppercase">Net Loss</div>
+              <div style="font-size:1.05rem;font-weight:700;color:var(--text-h)">CAD {tot_s:.0f}M</div>
             </div>
             <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #BFDBFE">
               <div style="font-size:.6rem;color:#1D4ED8;font-weight:600;text-transform:uppercase">Transition Risk</div>
@@ -1100,7 +1351,7 @@ with tab4:
               <div style="font-size:.9rem;font-weight:700;color:#EA580C">CAD {pl_s*(1-net_pass_thru):.0f}M</div>
             </div>
           </div>
-          <div style="font-size:.69rem;color:#64748B;line-height:1.5">{sc_d['risk_focus']}</div>
+          <div style="font-size:.69rem;color:var(--text-sec);line-height:1.5">{sc_d['risk_focus']}</div>
         </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1483,14 +1734,14 @@ with tab5:
         ("TC Energy Market Cap",  "CAD " + str(round(MKT['mktcap_bn'], 1)) + "B (live)",     "#0D2137"),
     ]:
         risk_rows += (
-            '<tr><td style="padding:6px 11px;border-bottom:1px solid #E5E7EB">' + k + '</td>'
-            + '<td style="padding:6px 11px;border-bottom:1px solid #E5E7EB;font-weight:600;color:'
+            '<tr><td style="padding:6px 11px;border-bottom:1px solid var(--border)">' + k + '</td>'
+            + '<td style="padding:6px 11px;border-bottom:1px solid var(--border);font-weight:600;color:'
             + vc + '">' + v + '</td></tr>'
         )
 
     # ── Build meta table ──────────────────────────────────────────────────────
-    td0  = 'style="padding:7px 0;border-bottom:1px solid #E5E7EB;width:50%"'
-    td1  = 'style="padding:7px 0;border-bottom:1px solid #E5E7EB"'
+    td0  = 'style="padding:7px 0;border-bottom:1px solid var(--border);width:50%"'
+    td1  = 'style="padding:7px 0;border-bottom:1px solid var(--border)"'
     td2  = 'style="padding:7px 0"'
     meta = (
         '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">'
@@ -1508,16 +1759,16 @@ with tab5:
     )
 
     # ── Build risk attribution table ──────────────────────────────────────────
-    td  = 'style="padding:7px 11px;border-bottom:1px solid #E5E7EB"'
-    tdr = 'style="padding:7px 11px;border-bottom:1px solid #E5E7EB;text-align:right"'
+    td  = 'style="padding:7px 11px;border-bottom:1px solid var(--border)"'
+    tdr = 'style="padding:7px 11px;border-bottom:1px solid var(--border);text-align:right"'
     attr = (
         '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-        + '<tr style="background:#F3F4F6">'
-        + '<th style="padding:8px 11px;text-align:left;color:#374151;border-bottom:1px solid #D1D5DB">Component</th>'
-        + '<th style="padding:8px 11px;text-align:left;color:#374151;border-bottom:1px solid #D1D5DB">Driver</th>'
-        + '<th style="padding:8px 11px;text-align:right;color:#374151;border-bottom:1px solid #D1D5DB">Gross</th>'
-        + '<th style="padding:8px 11px;text-align:right;color:#374151;border-bottom:1px solid #D1D5DB">Net</th>'
-        + '<th style="padding:8px 11px;text-align:right;color:#374151;border-bottom:1px solid #D1D5DB">% Book</th></tr>'
+        + '<tr style="background:var(--bg-card-alt)">'
+        + '<th style="padding:8px 11px;text-align:left;color:var(--text-body);border-bottom:1px solid var(--border-md)">Component</th>'
+        + '<th style="padding:8px 11px;text-align:left;color:var(--text-body);border-bottom:1px solid var(--border-md)">Driver</th>'
+        + '<th style="padding:8px 11px;text-align:right;color:var(--text-body);border-bottom:1px solid var(--border-md)">Gross</th>'
+        + '<th style="padding:8px 11px;text-align:right;color:var(--text-body);border-bottom:1px solid var(--border-md)">Net</th>'
+        + '<th style="padding:8px 11px;text-align:right;color:var(--text-body);border-bottom:1px solid var(--border-md)">% Book</th></tr>'
         + '<tr><td ' + td + '><b>Carbon Tax Liability</b></td>'
         + '<td ' + td + '>' + str(A["Emissions_Mt"]) + ' Mt x carbon price path</td>'
         + '<td ' + tdr + '>CAD ' + str(round(cum_carbon_tax, 1)) + 'M</td>'
@@ -1538,7 +1789,7 @@ with tab5:
         + '<td ' + tdr + '>CAD ' + str(round(mkt_adj, 1)) + 'M</td>'
         + '<td ' + tdr + '>CAD ' + str(round(mkt_adj * (1 - net_pass_thru), 1)) + 'M</td>'
         + '<td ' + tdr + '>' + str(round(mkt_adj * (1 - net_pass_thru) / book_M * 100, 2)) + '%</td></tr>'
-        + '<tr style="background:#F3F4F6;font-weight:700">'
+        + '<tr style="background:var(--bg-card-alt);font-weight:700">'
         + '<td style="padding:8px 11px">Total Impairment</td><td style="padding:8px 11px"></td>'
         + '<td style="padding:8px 11px;text-align:right">CAD ' + str(int(total_loss / (1 - net_pass_thru + 0.0001))) + 'M</td>'
         + '<td style="padding:8px 11px;text-align:right;color:#DC2626">CAD ' + str(round(total_loss, 1)) + 'M</td>'
@@ -1597,9 +1848,9 @@ with tab5:
         # Section 4
         + '<h3>4. Risk Summary</h3>'
         + '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-        + '<tr style="background:#F3F4F6">'
-        + '<th style="padding:7px 11px;text-align:left;color:#374151">Dimension</th>'
-        + '<th style="padding:7px 11px;text-align:left;color:#374151">Assessment</th></tr>'
+        + '<tr style="background:var(--bg-card-alt)">'
+        + '<th style="padding:7px 11px;text-align:left;color:var(--text-body)">Dimension</th>'
+        + '<th style="padding:7px 11px;text-align:left;color:var(--text-body)">Assessment</th></tr>'
         + risk_rows
         + '</table>'
 
@@ -1624,7 +1875,7 @@ with tab5:
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(f"""
 <div style="text-align:center;padding:.9rem 0;border-top:1px solid #E2E8F0;
-            font-size:.73rem;color:#94A3B8">
+            font-size:.73rem;color:var(--text-muted)">
   TC Energy Corporation (TSX/NYSE: TRP) — Climate Risk Stress Terminal &nbsp;|&nbsp;
   Source: TC Energy 2024 Sustainability Report &amp; ESG Data Sheet &nbsp;|&nbsp;
   Live FX: {FX:.4f} CAD &nbsp;|&nbsp;
