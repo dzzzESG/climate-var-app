@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v4.6
+TC Energy — Climate Risk Stress Testing Terminal  v4.5
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -609,77 +609,6 @@ MKT = get_market_data()
 FX  = MKT["fx"]
 
 
-# ── Cached scenario model engine ─────────────────────────────────────────────
-@st.cache_data(ttl=600)
-def run_scenario(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_sel):
-    """Compute all financial outputs for one (asset, scenario, horizon) combination.
-    Cached so slider drags reuse prior results and feel instant."""
-    A   = ASSETS[asset_key]
-    SC  = SCENARIOS[scenario_key]
-    yrs = np.arange(2024, 2024 + duration_yrs + 1)
-    frc = duration_yrs / 26.0
-    cp  = np.array([
-        CARBON_SCHEDULE.get(y, 80 + (SC["cp_end"] - 80) * (y - 2024) / 26)
-        for y in yrs
-    ])
-    cct  = float((A["Emissions_Mt"] * cp).sum())
-    smul = 1.4 if SC["high_tax"] else 1.0
-    sl   = A["Value_B"] * 1000 * A["Stranded_F"] * smul * frc
-    ma   = A["Value_B"] * 1000 * 0.04 if "Pipeline" in A["Type"] else 0.0
-    npt  = pass_thru_pct / 100.0
-    dr   = A["HazardPhys"].get(hazard_sel, {}).get(SC["key"], A["Phys"][SC["key"]])
-    pg   = A["Value_B"] * 1000 * dr * frc
-    pn   = pg * (1 - npt)
-    tt   = (cct + sl + ma) * (1 - npt)
-    tl   = tt + pn
-    bm   = A["Value_B"] * 1000
-    cv   = (tl / bm) * -100
-    rl   = "High" if abs(cv) > 15 else ("Moderate" if abs(cv) > 5 else "Low")
-    return {
-        "years": yrs, "cp_path": cp, "frac": frc,
-        "cum_carbon_tax": cct, "stranded_loss": sl, "mkt_adj": ma,
-        "damage_rate": dr, "phys_loss_gross": pg, "phys_loss_net": pn,
-        "transition_total": tt, "total_loss": tl, "book_M": bm,
-        "stress_val_M": bm - tl, "cvar_pct": cv, "phys_pct": (pn/bm)*100,
-        "net_pass_thru": npt, "stranded_mult": smul,
-        "primary_driver": "Transition Risk" if tt > pn else "Physical Risk",
-        "risk_lvl": rl,
-        "risk_color": {"High": "#DC2626", "Moderate": "#D97706", "Low": "#16A34A"}[rl],
-    }
-
-
-@st.cache_data(ttl=600)
-def build_heatmap(asset_key, sc_key, dur, pt, haz, wacc_list, cp_list):
-    """Sensitivity heatmap: Climate VaR % across WACC × terminal carbon price grid.
-    Module-level function required — @st.cache_data cannot decorate inner functions."""
-    z = []
-    for w in wacc_list:
-        row = []
-        for cp_e in cp_list:
-            A_h  = ASSETS[asset_key]
-            SC_h = SCENARIOS[sc_key]
-            yrs_h = np.arange(2024, 2024 + dur + 1)
-            cp_h  = np.array([
-                CARBON_SCHEDULE.get(y, 80 + (cp_e - 80) * (y - 2024) / 26)
-                for y in yrs_h
-            ])
-            cct_h  = float((A_h["Emissions_Mt"] * cp_h).sum())
-            smul_h = 1.4 if SC_h["high_tax"] else 1.0
-            sl_h   = A_h["Value_B"] * 1000 * A_h["Stranded_F"] * smul_h * (dur / 26)
-            ma_h   = A_h["Value_B"] * 1000 * 0.04 if "Pipeline" in A_h["Type"] else 0
-            npt_h  = pt / 100
-            dr_h   = A_h["HazardPhys"].get(haz, {}).get(SC_h["key"], A_h["Phys"][SC_h["key"]])
-            pg_h   = A_h["Value_B"] * 1000 * dr_h * (dur / 26)
-            pn_h   = pg_h * (1 - npt_h)
-            tt_h   = (cct_h + sl_h + ma_h) * (1 - npt_h)
-            tl_h   = tt_h + pn_h
-            bm_h   = A_h["Value_B"] * 1000
-            cv_h   = (tl_h / bm_h) * 100   # raw VaR %, WACC affects hurdle but not loss magnitude
-            row.append(round(cv_h, 1))
-        z.append(row)
-    return z
-
-
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(f"""
@@ -745,20 +674,6 @@ with st.sidebar:
              "or insurance. TC Energy's NEB/FERC-regulated pipelines recover ~65%; "
              "Bruce Power (IESO-contracted) recovers ~85%. Unregulated assets recover less.")
 
-    st.markdown('<div class="sb-lbl">Scenario Compare Mode</div>', unsafe_allow_html=True)
-    compare_mode = st.toggle(
-        "Enable side-by-side comparison",
-        value=False,
-        help="When enabled, the Executive Dashboard and Climate VaR tab show two "
-             "scenarios simultaneously for direct risk-exposure comparison.")
-    if compare_mode:
-        scenario_b_name = st.selectbox(
-            "Comparison Scenario", [s for s in SCENARIOS if s != scenario_name],
-            label_visibility="collapsed",
-            help="Second scenario to compare against the primary selection above.")
-    else:
-        scenario_b_name = [s for s in SCENARIOS if s != scenario_name][0]
-
     st.divider()
     live_lbl = "Live" if MKT["live"] else "Fallback"
     st.markdown(f"""
@@ -778,37 +693,47 @@ with st.sidebar:
     </div>""", unsafe_allow_html=True)
 
 
-# ── Run cached model engine ───────────────────────────────────────────────────
-R = run_scenario(selected, scenario_name, duration, pass_thru, hazard)
+# ── Model calculations ────────────────────────────────────────────────────────
+years = np.arange(2024, end_year + 1)
+n_yrs = len(years)
+frac  = duration / 26.0   # fraction of full 26-yr window
 
-# Unpack primary scenario results
-years          = R["years"]
-cp_path        = R["cp_path"]
-frac           = R["frac"]
-cum_carbon_tax = R["cum_carbon_tax"]
-stranded_loss  = R["stranded_loss"]
-mkt_adj        = R["mkt_adj"]
-damage_rate    = R["damage_rate"]
-phys_loss_gross = R["phys_loss_gross"]
-phys_loss_net  = R["phys_loss_net"]
-transition_total = R["transition_total"]
-total_loss     = R["total_loss"]
-book_M         = R["book_M"]
-stress_val_M   = R["stress_val_M"]
-cvar_pct       = R["cvar_pct"]
-phys_pct       = R["phys_pct"]
-net_pass_thru  = R["net_pass_thru"]
-stranded_mult  = R["stranded_mult"]
-primary_driver = R["primary_driver"]
-risk_lvl       = R["risk_lvl"]
-risk_color     = R["risk_color"]
+# Carbon price path
+cp_start = CARBON_SCHEDULE.get(2024, 80)
+cp_end   = SC["cp_end"]
+cp_path  = np.linspace(cp_start, cp_end, n_yrs)
 
-# Run comparison scenario if compare mode is on
-if compare_mode:
-    R2           = run_scenario(selected, scenario_b_name, duration, pass_thru, hazard)
-    SC2          = SCENARIOS[scenario_b_name]
-else:
-    R2 = None; SC2 = None
+# Actual federal schedule for 2024-2030, then extrapolate
+cp_actual = np.array([
+    CARBON_SCHEDULE.get(y, cp_start + (cp_end - cp_start) * (y - 2024) / 26)
+    for y in years
+])
+# Blend: use actual schedule where available, then extrapolate
+cp_path = cp_actual
+
+# Transition costs
+cum_carbon_tax = float((A["Emissions_Mt"] * cp_path).sum())
+stranded_mult  = 1.4 if SC["high_tax"] else 1.0
+stranded_loss  = A["Value_B"] * 1000 * A["Stranded_F"] * stranded_mult * frac
+mkt_adj        = A["Value_B"] * 1000 * 0.04 if "Pipeline" in A["Type"] else 0.0
+net_pass_thru  = pass_thru / 100.0
+
+# Physical risk — use per-hazard rate if available, else fall back to scenario aggregate
+damage_rate = A["HazardPhys"].get(hazard, {}).get(SC["key"], A["Phys"][SC["key"]])
+phys_loss_gross = A["Value_B"] * 1000 * damage_rate * frac
+phys_loss_net   = phys_loss_gross * (1 - net_pass_thru)
+
+# Total
+transition_total = (cum_carbon_tax + stranded_loss + mkt_adj) * (1 - net_pass_thru)
+total_loss       = transition_total + phys_loss_net
+book_M           = A["Value_B"] * 1000
+stress_val_M     = book_M - total_loss
+cvar_pct         = (total_loss / book_M) * -100
+phys_pct         = (phys_loss_net / book_M) * 100
+
+primary_driver = "Transition Risk" if transition_total > phys_loss_net else "Physical Risk"
+risk_lvl = "High" if abs(cvar_pct) > 15 else ("Moderate" if abs(cvar_pct) > 5 else "Low")
+risk_color = {"High": "#DC2626", "Moderate": "#D97706", "Low": "#16A34A"}[risk_lvl]
 
 
 # ── Page header ───────────────────────────────────────────────────────────────
@@ -912,272 +837,13 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Executive Dashboard",
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Asset Geography",
     "Physical Risk",
     "Transition Risk",
     "Climate VaR Bridge",
     "Management Report",
 ])
-
-
-# ════════════════════════════════════════════════════════════════
-#  TAB 0 — EXECUTIVE DASHBOARD
-# ════════════════════════════════════════════════════════════════
-with tab0:
-    st.markdown('<div class="sec">Executive Dashboard — Integrated Climate Risk Overview</div>',
-                unsafe_allow_html=True)
-
-    # ── Headline metrics row ──────────────────────────────────────────────────
-    e1, e2, e3, e4, e5 = st.columns(5)
-    rl_bg   = {"High": "#FEF2F2", "Moderate": "#FFFBEB", "Low": "#F0FDF4"}[risk_lvl]
-    rl_bc   = {"High": "#EF4444", "Moderate": "#F59E0B", "Low": "#22C55E"}[risk_lvl]
-    for col, lbl, val, sub, bdr in [
-        (e1, "Climate VaR",         f"{cvar_pct:.1f}%",              f"Risk Level: {risk_lvl}",       "kpi-neg"),
-        (e2, "Net Stress Loss",      f"CAD {total_loss:.0f}M",        "After pass-through",            "kpi-warn"),
-        (e3, "Primary Driver",       primary_driver,                  f"Transition: {transition_total:.0f}M | Physical: {phys_loss_net:.0f}M", "kpi-inf"),
-        (e4, "Stress-Adjusted Value",f"CAD {max(stress_val_M,0):.0f}M", f"From CAD {book_M:.0f}M base","kpi-pos"),
-        (e5, "Horizon",              f"2024 – {end_year}",            f"{duration} yr · {scenario_name.split(' — ')[0]}","kpi-inf"),
-    ]:
-        col.markdown(f"""
-        <div class="kpi {bdr}">
-          <div class="kpi-lbl">{lbl}</div>
-          <div class="kpi-val">{val}</div>
-          <div class="kpi-sub">{sub}</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── Compare Mode banner ───────────────────────────────────────────────────
-    if compare_mode and R2:
-        st.markdown(f"""
-        <div style="background:var(--bg-card-sel);border:1px solid #3B82F6;border-radius:9px;
-                    padding:.7rem 1.1rem;margin-bottom:.8rem;font-size:.82rem;color:var(--text-h)">
-          <b>Compare Mode Active:</b>&nbsp;
-          <span style="color:{SC['color']};font-weight:700">{scenario_name.split(' — ')[0]}</span>
-          &nbsp;vs&nbsp;
-          <span style="color:{SC2['color']};font-weight:700">{scenario_b_name.split(' — ')[0]}</span>
-          &nbsp;—&nbsp;{selected} &nbsp;·&nbsp; {duration}-year horizon &nbsp;·&nbsp; {pass_thru}% pass-through
-        </div>""", unsafe_allow_html=True)
-
-    # ── Main dashboard charts ─────────────────────────────────────────────────
-    dash_left, dash_right = st.columns([3, 2])
-
-    with dash_left:
-        # Big risk breakdown bar — transition vs physical split across all scenarios
-        all_sc_names, all_tr, all_ph, all_tot = [], [], [], []
-        SC_LBL = {
-            "RCP 4.5 — Moderate Warming (~2°C)": "RCP 4.5",
-            "RCP 8.5 — High Emission (~4°C)":    "RCP 8.5",
-            "NGFS — Net Zero 2050":              "NGFS NZ2050",
-            "NGFS — Delayed Transition":         "NGFS Delayed",
-            "NGFS — Current Policies":           "NGFS Curr. Pol.",
-        }
-        for sc_n, sc_d in SCENARIOS.items():
-            rs = run_scenario(selected, sc_n, duration, pass_thru, hazard)
-            all_sc_names.append(SC_LBL.get(sc_n, sc_n))
-            all_tr.append(rs["transition_total"])
-            all_ph.append(rs["phys_loss_net"])
-            all_tot.append(rs["total_loss"])
-
-        # Sort by total loss
-        order = sorted(range(len(all_tot)), key=lambda i: all_tot[i])
-        sn_s  = [all_sc_names[i] for i in order]
-        tr_s  = [all_tr[i]       for i in order]
-        ph_s  = [all_ph[i]       for i in order]
-        tot_s = [all_tot[i]      for i in order]
-
-        # Highlight primary (and compare if active)
-        primary_short = SC_LBL.get(scenario_name, scenario_name)
-        compare_short = SC_LBL.get(scenario_b_name, "") if compare_mode and R2 else ""
-
-        tr_colors = ["#1D4ED8" if n == primary_short
-                     else (SC2["color"] if compare_mode and n == compare_short else "#93C5FD")
-                     for n in sn_s]
-        ph_colors = ["#EA580C" if n == primary_short
-                     else (SC2["color"] if compare_mode and n == compare_short else "#FED7AA")
-                     for n in sn_s]
-
-        fig_dash = go.Figure()
-        fig_dash.add_trace(go.Bar(
-            y=sn_s, x=tr_s, orientation="h", name="Transition Risk",
-            marker_color=tr_colors, marker_line=dict(width=0),
-        ))
-        fig_dash.add_trace(go.Bar(
-            y=sn_s, x=ph_s, orientation="h", name="Physical Risk",
-            marker_color=ph_colors, marker_line=dict(width=0),
-        ))
-        for i, (n, t) in enumerate(zip(sn_s, tot_s)):
-            fig_dash.add_annotation(
-                x=t, y=n, text=f"CAD {t:.0f}M ({-t/book_M*100:.1f}%)",
-                xanchor="left", yanchor="middle", showarrow=False, xshift=6,
-                font=dict(size=12, color="#1E293B"),
-            )
-        fig_dash.update_layout(
-            title=dict(text=f"Net Climate Loss by Scenario — {selected.split('(')[0].strip()}",
-                       font=dict(size=13, color="#0D2137")),
-            height=300, template="plotly_white", barmode="stack",
-            xaxis=dict(title="Net Loss (CAD $M)", tickfont=dict(size=12, color="#1E293B")),
-            yaxis=dict(tickfont=dict(size=12, color="#1E293B")),
-            legend=dict(font=dict(size=12, color="#1E293B"), orientation="h", y=-0.22),
-            margin=dict(t=40, b=55, l=10, r=120),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        )
-        _chart(fig_dash)
-
-        # ── Compare Mode: side-by-side VaR gauge ─────────────────────────────
-        if compare_mode and R2:
-            cg1, cg2 = st.columns(2)
-            for col_g, res, sc_d, lbl_g in [
-                (cg1, R, SC, scenario_name.split(" — ")[0]),
-                (cg2, R2, SC2, scenario_b_name.split(" — ")[0]),
-            ]:
-                with col_g:
-                    fig_cg = go.Figure(go.Indicator(
-                        mode="gauge+number+delta",
-                        value=round(abs(res["cvar_pct"]), 1),
-                        number={"suffix": "% VaR", "font": {"size": 22, "color": "#0D2137"}},
-                        delta={"reference": 15, "relative": False,
-                               "increasing": {"color": "#DC2626"}, "decreasing": {"color": "#22C55E"}},
-                        gauge={
-                            "axis": {"range": [0, 40], "ticksuffix": "%",
-                                     "tickfont": {"size": 12, "color": "#1E293B"}},
-                            "bar": {"color": sc_d["color"], "thickness": 0.25},
-                            "bgcolor": "rgba(0,0,0,0)", "bordercolor": "rgba(0,0,0,0)",
-                            "steps": [
-                                {"range": [0, 5],  "color": "rgba(22,163,74,0.42)"},
-                                {"range": [5, 15], "color": "rgba(234,179,8,0.42)"},
-                                {"range": [15, 40], "color": "rgba(220,38,38,0.40)"},
-                            ],
-                            "threshold": {"line": {"color": "#374151", "width": 2},
-                                          "thickness": 0.75, "value": 15},
-                        },
-                        title={"text": lbl_g, "font": {"size": 12, "color": "#0D2137"}},
-                    ))
-                    fig_cg.update_layout(height=200, margin=dict(t=40, b=0, l=10, r=10),
-                                          paper_bgcolor="rgba(0,0,0,0)")
-                    _chart(fig_cg)
-        else:
-            # Single scenario: risk speedometer
-            fig_spd = go.Figure(go.Indicator(
-                mode="gauge+number+delta",
-                value=round(abs(cvar_pct), 1),
-                number={"suffix": "% VaR", "font": {"size": 26, "color": "#0D2137"}},
-                delta={"reference": 15, "relative": False,
-                       "increasing": {"color": "#DC2626"}, "decreasing": {"color": "#22C55E"}},
-                gauge={
-                    "axis": {"range": [0, 40], "ticksuffix": "%",
-                             "tickfont": {"size": 12, "color": "#1E293B"}},
-                    "bar": {"color": risk_color, "thickness": 0.25},
-                    "bgcolor": "rgba(0,0,0,0)", "bordercolor": "rgba(0,0,0,0)",
-                    "steps": [
-                        {"range": [0, 5],  "color": "rgba(22,163,74,0.42)"},
-                        {"range": [5, 15], "color": "rgba(234,179,8,0.42)"},
-                        {"range": [15, 40], "color": "rgba(220,38,38,0.40)"},
-                    ],
-                    "threshold": {"line": {"color": "#374151", "width": 2},
-                                  "thickness": 0.75, "value": 15},
-                },
-                title={"text": f"Climate VaR — {risk_lvl} Risk<br>"
-                               f"<span style='font-size:11px;color:#6B7280'>"
-                               f"{scenario_name.split(' — ')[0]}</span>",
-                       "font": {"size": 13, "color": "#0D2137"}},
-            ))
-            fig_spd.update_layout(height=240, margin=dict(t=50, b=0, l=10, r=10),
-                                   paper_bgcolor="rgba(0,0,0,0)")
-            _chart(fig_spd)
-
-    with dash_right:
-        # ── Sensitivity heatmap: WACC × Carbon Price End → Climate VaR % ────
-        st.markdown('<div style="font-size:.82rem;font-weight:600;color:var(--text-h);margin-bottom:.4rem">'
-                    'Sensitivity Heatmap — Climate VaR % vs WACC &amp; Carbon Price</div>',
-                    unsafe_allow_html=True)
-        st.markdown('<div style="font-size:.7rem;color:var(--text-sec);margin-bottom:.6rem">'
-                    'How does VaR change as WACC and terminal carbon price vary?</div>',
-                    unsafe_allow_html=True)
-
-        wacc_range  = [6, 7, 8, 9, 10, 11, 12]
-        cp_end_range = [130, 170, 210, 250, 300, 345]
-
-        heat_z = build_heatmap(selected, scenario_name, duration, pass_thru, hazard,
-                                wacc_range, cp_end_range)
-
-        fig_heat = go.Figure(go.Heatmap(
-            z=heat_z,
-            x=[f"${c}" for c in cp_end_range],
-            y=[f"{w}%" for w in wacc_range],
-            colorscale=[[0,"#F0FDF4"],[0.2,"#FEF9C3"],[0.5,"#FEF3C7"],
-                        [0.75,"#FECACA"],[1,"#7F1D1D"]],
-            text=[[f"{v:.1f}%" for v in row] for row in heat_z],
-            texttemplate="%{text}",
-            textfont=dict(size=11, color="#0D2137"),
-            showscale=True,
-            colorbar=dict(title="VaR %", thickness=12,
-                          tickfont=dict(size=11, color="#1E293B"),
-                          titlefont=dict(size=11, color="#1E293B")),
-            hovertemplate="WACC: %{y}<br>Carbon Price: %{x}<br>VaR: %{z}%<extra></extra>",
-        ))
-        # Mark current WACC and current scenario cp_end
-        curr_wacc_idx  = min(range(len(wacc_range)),  key=lambda i: abs(wacc_range[i]  - wacc*100))
-        curr_cp_idx    = min(range(len(cp_end_range)), key=lambda i: abs(cp_end_range[i] - SC["cp_end"]))
-        fig_heat.add_shape(type="rect",
-            x0=curr_cp_idx-.5, x1=curr_cp_idx+.5,
-            y0=curr_wacc_idx-.5, y1=curr_wacc_idx+.5,
-            line=dict(color="#3B82F6", width=3))
-        fig_heat.add_annotation(
-            x=curr_cp_idx, y=curr_wacc_idx,
-            text="▲ Current", showarrow=False, yshift=-20,
-            font=dict(size=10, color="#3B82F6"))
-        fig_heat.update_layout(
-            height=320, template="plotly_white",
-            xaxis=dict(title="Terminal Carbon Price (CAD $/t)", tickfont=dict(size=12, color="#1E293B")),
-            yaxis=dict(title="WACC", tickfont=dict(size=12, color="#1E293B")),
-            margin=dict(t=10, b=50, l=10, r=10),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        )
-        _chart(fig_heat)
-        st.markdown("""
-        <div class="mbox" style="font-size:.72rem">
-          <b>How to read:</b> Each cell shows Climate VaR % for a given
-          WACC and terminal carbon price. <b>Darker red = higher VaR.</b>
-          The blue box marks your current inputs. Use this to identify
-          the non-linear inflection points where small policy changes
-          produce large valuation impacts.
-        </div>""", unsafe_allow_html=True)
-
-    # ── EBITDA / FCF impact section ───────────────────────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="sec" style="font-size:.88rem">EBITDA & Free Cash Flow Sensitivity</div>',
-                unsafe_allow_html=True)
-
-    # TC Energy consolidated EBITDA 2023 ~CAD $9.8B (Q3 2024 MD&A)
-    EBITDA_CONSOLIDATED = 9_800   # CAD $M
-    ebitda_asset_share = (book_M / sum(d["Value_B"]*1000 for d in ASSETS.values()))
-    ebitda_asset = EBITDA_CONSOLIDATED * ebitda_asset_share
-
-    f1, f2, f3, f4 = st.columns(4)
-    annual_transition = transition_total / max(duration, 1)
-    annual_physical   = phys_loss_net   / max(duration, 1)
-    ebitda_erosion_pct = (annual_transition + annual_physical) / ebitda_asset * 100
-    fcf_impact = total_loss * 0.65   # FCF ~65% of EBITDA (TC Energy 2023 ratio)
-
-    for col, lbl, val, sub, bdr in [
-        (f1, "Asset-Level EBITDA (est.)",  f"CAD {ebitda_asset:.0f}M/yr",
-         f"~{ebitda_asset_share*100:.0f}% of CAD {EBITDA_CONSOLIDATED}M consolidated", "kpi-inf"),
-        (f2, "Annual Climate Cost",         f"CAD {annual_transition+annual_physical:.0f}M/yr",
-         f"Avg over {duration}-yr horizon", "kpi-warn"),
-        (f3, "EBITDA Erosion",              f"{ebitda_erosion_pct:.1f}%/yr",
-         "Annual climate cost ÷ asset EBITDA", "kpi-neg"),
-        (f4, "Estimated FCF Impact",        f"CAD {fcf_impact:.0f}M",
-         f"~65% of total loss (TC 2023 FCF/EBITDA ratio)", "kpi-warn"),
-    ]:
-        col.markdown(f"""
-        <div class="kpi {bdr}">
-          <div class="kpi-lbl">{lbl}</div>
-          <div class="kpi-val">{val}</div>
-          <div class="kpi-sub">{sub}</div>
-        </div>""", unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════
