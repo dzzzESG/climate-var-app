@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v4
+TC Energy — Climate Risk Stress Testing Terminal  v4.3
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 Install: pip install streamlit plotly pandas numpy yfinance
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -153,10 +153,14 @@ section[data-testid="stSidebar"] input[type="number"] {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PAGE HEADER
+   PAGE HEADER — force strong contrast in both modes
    ═══════════════════════════════════════════════════════════ */
-.page-hdr h1 { font-size: 1.6rem; font-weight: 700; color: var(--text-h); margin: 0 0 .2rem; letter-spacing: -.4px; }
-.page-hdr p  { font-size: .88rem; color: var(--text-sec); margin: 0; }
+.page-hdr h1 {
+  font-size: 1.6rem; font-weight: 700;
+  color: var(--text-h) !important;    /* !important beats Streamlit reset */
+  margin: 0 0 .2rem; letter-spacing: -.4px;
+}
+.page-hdr p  { font-size: .88rem; color: var(--text-sec) !important; margin: 0; }
 .hdr-rule    { border: none; border-top: var(--hdr-rule); margin: .8rem 0 1.5rem; }
 
 /* ═══════════════════════════════════════════════════════════
@@ -168,12 +172,12 @@ section[data-testid="stSidebar"] input[type="number"] {
   border-radius: 10px; padding: .95rem 1.2rem;
 }
 .kpi-dark { background: #0D2137; border-radius: 10px; padding: .95rem 1.2rem; }
-.kpi-lbl  { font-size: .66rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
-.kpi-val  { font-size: 1.45rem; font-weight: 700; color: var(--text-h); line-height: 1.1; }
-.kpi-sub  { font-size: .73rem; color: var(--text-muted); margin-top: 3px; }
-.kpi-dark .kpi-lbl { color: #475569; }
-.kpi-dark .kpi-val { color: #F1F5F9; }
-.kpi-dark .kpi-sub { color: #334155; }
+.kpi-lbl  { font-size: .66rem; font-weight: 700; color: var(--text-sec) !important; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+.kpi-val  { font-size: 1.45rem; font-weight: 700; color: var(--text-h) !important; line-height: 1.1; }
+.kpi-sub  { font-size: .73rem; color: var(--text-muted) !important; margin-top: 3px; }
+.kpi-dark .kpi-lbl { color: #64748B !important; }
+.kpi-dark .kpi-val { color: #F1F5F9 !important; }
+.kpi-dark .kpi-sub { color: #475569 !important; }
 .kpi-neg  { border-left: 3px solid #EF4444; }
 .kpi-warn { border-left: 3px solid #F59E0B; }
 .kpi-pos  { border-left: 3px solid #22C55E; }
@@ -184,7 +188,7 @@ section[data-testid="stSidebar"] input[type="number"] {
    ═══════════════════════════════════════════════════════════ */
 .sec {
   font-size: .98rem; font-weight: 600;
-  color: var(--text-h);
+  color: var(--text-h) !important;
   border-bottom: 2px solid var(--border);
   padding-bottom: .55rem; margin-bottom: 1.15rem;
 }
@@ -193,9 +197,9 @@ section[data-testid="stSidebar"] input[type="number"] {
    INFO TILES
    ═══════════════════════════════════════════════════════════ */
 .itile { background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px; padding: .85rem 1.05rem; }
-.itile .il { font-size: .65rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
-.itile .iv { font-size: 1.25rem; font-weight: 700; color: var(--text-h); }
-.itile .is { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+.itile .il { font-size: .65rem; font-weight: 700; color: var(--text-sec) !important; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.itile .iv { font-size: 1.25rem; font-weight: 700; color: var(--text-h) !important; }
+.itile .is { font-size: .72rem; color: var(--text-muted) !important; margin-top: 2px; }
 
 /* ═══════════════════════════════════════════════════════════
    ASSET CARDS
@@ -203,18 +207,18 @@ section[data-testid="stSidebar"] input[type="number"] {
 .a-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
            padding: .6rem .9rem; margin-bottom: .45rem; }
 .a-card.sel { background: var(--bg-card-sel); border-color: #3B82F6; border-width: 2px; }
-.a-name { font-size: .79rem; font-weight: 600; color: var(--text-h); margin-bottom: 2px; }
-.a-meta { display: flex; gap: 14px; font-size: .7rem; color: var(--text-sec); }
+.a-name { font-size: .79rem; font-weight: 600; color: var(--text-h) !important; margin-bottom: 2px; }
+.a-meta { display: flex; gap: 14px; font-size: .7rem; color: var(--text-sec) !important; }
 
 /* ═══════════════════════════════════════════════════════════
    NOTE & METHOD BOXES
    ═══════════════════════════════════════════════════════════ */
 .note { background: var(--bg-note); border-left: 3px solid var(--border-note);
         border-radius: 0 6px 6px 0; padding: .65rem 1rem;
-        font-size: .8rem; color: var(--text-note); margin-top: .6rem; }
-.note b { color: var(--text-note-b); }
+        font-size: .8rem; color: var(--text-note) !important; margin-top: .6rem; }
+.note b { color: var(--text-note-b) !important; }
 .mbox { background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px;
-        padding: .75rem 1rem; font-size: .78rem; color: var(--text-body); margin-top: .5rem; }
+        padding: .75rem 1rem; font-size: .78rem; color: var(--text-body) !important; margin-top: .5rem; }
 
 /* ═══════════════════════════════════════════════════════════
    TABS
@@ -232,6 +236,7 @@ section[data-testid="stSidebar"] input[type="number"] {
   background: var(--bg-tab-active) !important;
   color: var(--text-h) !important;
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  font-weight: 700 !important;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -251,25 +256,139 @@ div[data-testid="stExpander"] {
 .stDownloadButton button:hover { background: #1E3A5F !important; }
 
 /* ═══════════════════════════════════════════════════════════
-   FORMAL REPORT (Tab 5) — stays on white/near-white in all modes
-   for "printed document" aesthetic; only subtle dark-mode tint
+   FORMAL REPORT (Tab 5) — ALWAYS white, regardless of theme.
+   Printed-document aesthetic must never flip to dark.
    ═══════════════════════════════════════════════════════════ */
 .rpt {
-  background: var(--bg-card);
-  padding: 44px 52px; border: 1px solid var(--border-md);
-  border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
-  font-family: 'Georgia', serif; color: var(--text-body);
+  background: #FFFFFF !important;   /* locked white in all modes */
+  padding: 44px 52px;
+  border: 1px solid #D1D5DB !important;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.10);
+  font-family: 'Georgia', serif;
+  color: #111827 !important;        /* locked dark text in all modes */
 }
-.rpt h2 { color: var(--text-h); font-size: 21px; text-transform: uppercase; letter-spacing: .4px; margin: 0 0 5px; }
-.rpt h3 { color: var(--text-h); font-size: 15px; border-bottom: 1px solid var(--border);
+.rpt h2 { color: #0D2137 !important; font-size: 21px; text-transform: uppercase; letter-spacing: .4px; margin: 0 0 5px; }
+.rpt h3 { color: #0D2137 !important; font-size: 15px; border-bottom: 1px solid #D1D5DB !important;
           padding-bottom: 4px; margin: 26px 0 9px; }
-.rpt p, .rpt li { font-size: 13.5px; line-height: 1.75; color: var(--text-body); }
-.rpt .rec { background: var(--bg-card-alt); border-left: 4px solid #3B82F6; padding: 14px 18px 14px 22px; }
-.rpt .ftr { font-size: 11px; color: var(--text-muted); margin-top: 36px; padding-top: 12px;
-            border-top: 1px solid var(--border); text-align: justify; }
+.rpt p, .rpt li { font-size: 13.5px; line-height: 1.75; color: #1F2937 !important; }
+.rpt table td, .rpt table th { color: #374151 !important; }
+.rpt .rec { background: #F3F4F6 !important; border-left: 4px solid #0D2137; padding: 14px 18px 14px 22px; }
+.rpt .ftr { font-size: 11px; color: #9CA3AF !important; margin-top: 36px; padding-top: 12px;
+            border-top: 1px solid #D1D5DB !important; text-align: justify; }
 
 /* ═══════════════════════════════════════════════════════════
-   DATAFRAME — force readable text in dark mode
+   PLOTLY CHARTS — SVG text override for dark mode
+   Plotly embeds text as SVG <text> elements with fill attributes.
+   CSS fill rules override inline SVG fill in modern browsers.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Shared: give chart containers a subtle card background so text
+   always has a defined surface to sit on */
+.js-plotly-plot .plotly { border-radius: 8px; }
+
+/* ── Dark mode chart text → bright sky blue ────────────────── */
+@media (prefers-color-scheme: dark) {
+  /* Axis tick labels */
+  .js-plotly-plot .plotly .xtick text,
+  .js-plotly-plot .plotly .ytick text {
+    fill: #93C5FD !important;
+  }
+  /* Axis titles */
+  .js-plotly-plot .plotly .xtitle text,
+  .js-plotly-plot .plotly .ytitle text,
+  .js-plotly-plot .plotly .g-xtitle text,
+  .js-plotly-plot .plotly .g-ytitle text {
+    fill: #BAE6FD !important;
+  }
+  /* Chart / subplot titles */
+  .js-plotly-plot .plotly .gtitle text,
+  .js-plotly-plot .plotly .g-title text {
+    fill: #E0F2FE !important;
+  }
+  /* Legend text */
+  .js-plotly-plot .plotly .legend text,
+  .js-plotly-plot .plotly .legendtext {
+    fill: #CBD5E1 !important;
+  }
+  /* Bar/waterfall data labels (texttemplate) */
+  .js-plotly-plot .plotly .bartext text,
+  .js-plotly-plot .plotly .bars .textpoint text,
+  .js-plotly-plot .plotly text.bartext {
+    fill: #F1F5F9 !important;
+  }
+  /* Annotations (hline labels, vline labels, scatter text) */
+  .js-plotly-plot .plotly .annotation-text,
+  .js-plotly-plot .plotly .annotation text {
+    fill: #7DD3FC !important;
+  }
+  /* Indicator / gauge text (Tab4 VaR gauge, Tab2 gauge) */
+  .js-plotly-plot .plotly .number text,
+  .js-plotly-plot .plotly .delta text,
+  .js-plotly-plot .plotly .title text {
+    fill: #F1F5F9 !important;
+  }
+  /* Pie / donut chart labels */
+  .js-plotly-plot .plotly .slice text,
+  .js-plotly-plot .plotly .pieslice text {
+    fill: #F1F5F9 !important;
+  }
+  /* Colorbar tick labels */
+  .js-plotly-plot .plotly .cbaxis text {
+    fill: #93C5FD !important;
+  }
+  /* Heatmap text (sensitivity heatmap) */
+  .js-plotly-plot .plotly .hm text {
+    fill: #0D2137 !important;  /* heatmap cells already light-colored */
+  }
+  /* Subplot titles (make_subplots) */
+  .js-plotly-plot .plotly .infolayer .g-gtitle text,
+  .js-plotly-plot .plotly .infolayer text {
+    fill: #BAE6FD !important;
+  }
+  /* Zero line and grid lines — subtle blue-grey */
+  .js-plotly-plot .plotly .zl path,
+  .js-plotly-plot .plotly .gridlayer path {
+    stroke: rgba(148,163,184,0.25) !important;
+  }
+}
+
+/* Same rules for Streamlit's [data-theme="dark"] attribute */
+[data-theme="dark"] .js-plotly-plot .plotly .xtick text,
+[data-theme="dark"] .js-plotly-plot .plotly .ytick text {
+  fill: #93C5FD !important;
+}
+[data-theme="dark"] .js-plotly-plot .plotly .xtitle text,
+[data-theme="dark"] .js-plotly-plot .plotly .ytitle text,
+[data-theme="dark"] .js-plotly-plot .plotly .g-xtitle text,
+[data-theme="dark"] .js-plotly-plot .plotly .g-ytitle text {
+  fill: #BAE6FD !important;
+}
+[data-theme="dark"] .js-plotly-plot .plotly .gtitle text,
+[data-theme="dark"] .js-plotly-plot .plotly .g-title text,
+[data-theme="dark"] .js-plotly-plot .plotly .infolayer text {
+  fill: #E0F2FE !important;
+}
+[data-theme="dark"] .js-plotly-plot .plotly .legend text,
+[data-theme="dark"] .js-plotly-plot .plotly .legendtext {
+  fill: #CBD5E1 !important;
+}
+[data-theme="dark"] .js-plotly-plot .plotly .annotation-text,
+[data-theme="dark"] .js-plotly-plot .plotly .annotation text {
+  fill: #7DD3FC !important;
+}
+[data-theme="dark"] .js-plotly-plot .plotly .number text,
+[data-theme="dark"] .js-plotly-plot .plotly .delta text,
+[data-theme="dark"] .js-plotly-plot .plotly .title text {
+  fill: #F1F5F9 !important;
+}
+[data-theme="dark"] .js-plotly-plot .plotly .slice text,
+[data-theme="dark"] .js-plotly-plot .plotly .cbaxis text {
+  fill: #93C5FD !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DATAFRAME — readable in dark mode
    ═══════════════════════════════════════════════════════════ */
 [data-testid="stDataFrame"] { border-radius: 8px !important; }
 </style>
