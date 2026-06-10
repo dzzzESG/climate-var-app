@@ -1,7 +1,16 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v4.7
+TC Energy — Climate Risk Stress Testing Terminal  v5.0
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
-Install: pip install streamlit plotly pandas numpy yfinance
+
+v5.0 highlights:
+  · All loss figures are now true NPVs — annual carbon costs discounted
+    year-by-year at WACC; cumulative losses discounted at mid-horizon
+  · WACC is a live model input (drives headline VaR and the sensitivity heatmap)
+  · Single shared compute engine (_compute) — every chart, panel, and report
+    reconciles to the same numbers
+  · Auto-generated executive takeaway + Model Limitations disclosure
+
+Install: pip install streamlit plotly pandas numpy yfinance reportlab
 Run:     streamlit run tc_energy_stress_terminal.py
 """
 
@@ -15,12 +24,18 @@ from datetime import date
 
 # ── Chart / dataframe render helpers ─────────────────────────────────────────
 def _chart(fig):
-    """Render a Plotly figure at full container width."""
-    st.plotly_chart(fig, use_container_width=True)
+    """Render a Plotly figure at full container width (new + legacy Streamlit APIs)."""
+    try:
+        st.plotly_chart(fig, width="stretch")
+    except TypeError:
+        st.plotly_chart(fig, use_container_width=True)
 
 def _df(df, **kw):
-    """Render a dataframe at full container width."""
-    st.dataframe(df, use_container_width=True, **kw)
+    """Render a dataframe at full container width (new + legacy Streamlit APIs)."""
+    try:
+        st.dataframe(df, width="stretch", **kw)
+    except TypeError:
+        st.dataframe(df, use_container_width=True, **kw)
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -412,7 +427,6 @@ div[data-testid="stExpander"] {
 @st.cache_data(ttl=300)
 def get_market_data():
     try:
-        import yfinance as yf
         fx_raw   = yf.Ticker("CAD=X").history(period="2d")["Close"]
         trp_raw  = yf.Ticker("TRP").history(period="2d")
         fx       = float(fx_raw.iloc[-1]) if not fx_raw.empty else 1.39
@@ -610,25 +624,39 @@ FX  = MKT["fx"]
 
 
 # ── Cached scenario model engine ─────────────────────────────────────────────
-@st.cache_data(ttl=600)
-def run_scenario(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_sel):
-    """Compute all financial outputs for one (asset, scenario, horizon) combination.
-    Cached so slider drags reuse prior results and feel instant."""
+def _compute(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_sel,
+             wacc_frac, cp_end_override=None):
+    """Single source of truth for all scenario math.
+
+    Discounting (v5.0):
+    - Carbon costs are an annual cash-flow stream → discounted year-by-year at WACC:
+        PV = Σ  Emissions × CarbonPrice(t) / (1 + WACC)^(t − 2024)
+    - Stranded-asset, market-adjustment, and physical losses are cumulative
+      horizon totals → discounted with a mid-horizon factor (1 + WACC)^(H/2),
+      i.e. losses assumed to occur, on average, at the midpoint of the window.
+    All headline figures are therefore true NPVs, and WACC is a live model
+    input rather than a display-only parameter.
+    """
     A   = ASSETS[asset_key]
     SC  = SCENARIOS[scenario_key]
+    cp_end = SC["cp_end"] if cp_end_override is None else cp_end_override
     yrs = np.arange(2024, 2024 + duration_yrs + 1)
     frc = duration_yrs / 26.0
     cp  = np.array([
-        CARBON_SCHEDULE.get(y, 80 + (SC["cp_end"] - 80) * (y - 2024) / 26)
+        CARBON_SCHEDULE.get(y, 80 + (cp_end - 80) * (y - 2024) / 26)
         for y in yrs
     ])
-    cct  = float((A["Emissions_Mt"] * cp).sum())
+    # Present value of the annual carbon cost stream, discounted at WACC
+    disc_factors = (1 + wacc_frac) ** (yrs - 2024)
+    cct  = float((A["Emissions_Mt"] * cp / disc_factors).sum())
+    # Mid-horizon discount factor for cumulative (non-annual) loss components
+    mid_df = (1 + wacc_frac) ** (duration_yrs / 2.0)
     smul = 1.4 if SC["high_tax"] else 1.0
-    sl   = A["Value_B"] * 1000 * A["Stranded_F"] * smul * frc
-    ma   = A["Value_B"] * 1000 * 0.04 if "Pipeline" in A["Type"] else 0.0
+    sl   = A["Value_B"] * 1000 * A["Stranded_F"] * smul * frc / mid_df
+    ma   = (A["Value_B"] * 1000 * 0.04 if "Pipeline" in A["Type"] else 0.0) / mid_df
     npt  = pass_thru_pct / 100.0
     dr   = A["HazardPhys"].get(hazard_sel, {}).get(SC["key"], A["Phys"][SC["key"]])
-    pg   = A["Value_B"] * 1000 * dr * frc
+    pg   = A["Value_B"] * 1000 * dr * frc / mid_df
     pn   = pg * (1 - npt)
     tt   = (cct + sl + ma) * (1 - npt)
     tl   = tt + pn
@@ -640,8 +668,9 @@ def run_scenario(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_se
         "cum_carbon_tax": cct, "stranded_loss": sl, "mkt_adj": ma,
         "damage_rate": dr, "phys_loss_gross": pg, "phys_loss_net": pn,
         "transition_total": tt, "total_loss": tl, "book_M": bm,
+        "gross_total": cct + sl + ma + pg,
         "stress_val_M": bm - tl, "cvar_pct": cv, "phys_pct": (pn/bm)*100,
-        "net_pass_thru": npt, "stranded_mult": smul,
+        "net_pass_thru": npt, "stranded_mult": smul, "wacc_frac": wacc_frac,
         "primary_driver": "Transition Risk" if tt > pn else "Physical Risk",
         "risk_lvl": rl,
         "risk_color": {"High": "#DC2626", "Moderate": "#D97706", "Low": "#16A34A"}[rl],
@@ -649,33 +678,27 @@ def run_scenario(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_se
 
 
 @st.cache_data(ttl=600)
+def run_scenario(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_sel,
+                 wacc_pct):
+    """Compute all financial outputs for one (asset, scenario, horizon, WACC) combo.
+    Cached so slider drags reuse prior results and feel instant."""
+    return _compute(asset_key, scenario_key, duration_yrs, pass_thru_pct,
+                    hazard_sel, wacc_pct / 100.0)
+
+
+@st.cache_data(ttl=600)
 def build_heatmap(asset_key, sc_key, dur, pt, haz, wacc_list, cp_list):
     """Sensitivity heatmap: Climate VaR % across WACC × terminal carbon price grid.
-    Module-level function required — @st.cache_data cannot decorate inner functions."""
+    Both axes now flow through the same discounted engine (_compute), so a higher
+    WACC genuinely lowers the PV of future losses — the heatmap is no longer flat
+    along the WACC axis."""
     z = []
     for w in wacc_list:
         row = []
         for cp_e in cp_list:
-            A_h  = ASSETS[asset_key]
-            SC_h = SCENARIOS[sc_key]
-            yrs_h = np.arange(2024, 2024 + dur + 1)
-            cp_h  = np.array([
-                CARBON_SCHEDULE.get(y, 80 + (cp_e - 80) * (y - 2024) / 26)
-                for y in yrs_h
-            ])
-            cct_h  = float((A_h["Emissions_Mt"] * cp_h).sum())
-            smul_h = 1.4 if SC_h["high_tax"] else 1.0
-            sl_h   = A_h["Value_B"] * 1000 * A_h["Stranded_F"] * smul_h * (dur / 26)
-            ma_h   = A_h["Value_B"] * 1000 * 0.04 if "Pipeline" in A_h["Type"] else 0
-            npt_h  = pt / 100
-            dr_h   = A_h["HazardPhys"].get(haz, {}).get(SC_h["key"], A_h["Phys"][SC_h["key"]])
-            pg_h   = A_h["Value_B"] * 1000 * dr_h * (dur / 26)
-            pn_h   = pg_h * (1 - npt_h)
-            tt_h   = (cct_h + sl_h + ma_h) * (1 - npt_h)
-            tl_h   = tt_h + pn_h
-            bm_h   = A_h["Value_B"] * 1000
-            cv_h   = (tl_h / bm_h) * 100   # raw VaR %, WACC affects hurdle but not loss magnitude
-            row.append(round(cv_h, 1))
+            res = _compute(asset_key, sc_key, dur, pt, haz,
+                           wacc_frac=w / 100.0, cp_end_override=cp_e)
+            row.append(round(abs(res["cvar_pct"]), 1))
         z.append(row)
     return z
 
@@ -779,7 +802,7 @@ with st.sidebar:
 
 
 # ── Run cached model engine ───────────────────────────────────────────────────
-R = run_scenario(selected, scenario_name, duration, pass_thru, hazard)
+R = run_scenario(selected, scenario_name, duration, pass_thru, hazard, wacc * 100)
 
 # Unpack primary scenario results
 years          = R["years"]
@@ -793,6 +816,7 @@ phys_loss_gross = R["phys_loss_gross"]
 phys_loss_net  = R["phys_loss_net"]
 transition_total = R["transition_total"]
 total_loss     = R["total_loss"]
+gross_total    = R["gross_total"]
 book_M         = R["book_M"]
 stress_val_M   = R["stress_val_M"]
 cvar_pct       = R["cvar_pct"]
@@ -803,9 +827,13 @@ primary_driver = R["primary_driver"]
 risk_lvl       = R["risk_lvl"]
 risk_color     = R["risk_color"]
 
+# Mid-horizon discount factor — used by portfolio-level (cross-asset) views so
+# they reconcile with the discounted single-asset engine
+MID_DF = (1 + wacc) ** (duration / 2.0)
+
 # Run comparison scenario if compare mode is on
 if compare_mode:
-    R2           = run_scenario(selected, scenario_b_name, duration, pass_thru, hazard)
+    R2           = run_scenario(selected, scenario_b_name, duration, pass_thru, hazard, wacc * 100)
     SC2          = SCENARIOS[scenario_b_name]
 else:
     R2 = None; SC2 = None
@@ -825,9 +853,9 @@ with st.expander("Methodology & Data Sources — Traceability Reference"):
     mc1, mc2, mc3 = st.columns(3)
     with mc1:
         st.markdown("""
-**Physical Risk Model**
+**Physical Risk Model (NPV)**
 
-`EAL = AssetValue × DamageRate(h,s) × (Horizon / 26)`
+`EAL = AssetValue × DamageRate(h,s) × (Horizon / 26) ÷ (1 + WACC)^(H/2)`
 
 - Damage rates are **hazard-specific** and **scenario-specific**, derived from:
   - IPCC AR6 WG2 Ch. 11–12 (North America) and Ch. 13–14 (Central America)
@@ -838,12 +866,15 @@ with st.expander("Methodology & Data Sources — Traceability Reference"):
 """)
     with mc2:
         st.markdown("""
-**Transition Risk Model**
+**Transition Risk Model (NPV)**
 
-`Transition Loss = (Carbon Tax + Stranded Asset + Market Adj.) × (1 − Pass-Through%)`
+`PV Carbon Cost = Σ Emissions × CarbonPrice(t) ÷ (1 + WACC)^t`
 
-- **Carbon Tax:** Emissions_Mt × Canada Federal Carbon Price Schedule (actual 2024–2030: $80→$170/t; ECCC 2024)
+`Transition Loss = (PV Carbon + Stranded + Market Adj.) × (1 − Pass-Through%)`
+
+- **Carbon Tax:** annual cost stream discounted year-by-year at the applied WACC; prices follow Canada's Federal Carbon Price Schedule (actual 2024–2030: $80→$170/t; ECCC 2024)
 - Post-2030 extrapolated by scenario using NGFS Phase 4 (2023) price pathways (Net Zero: USD $250/t; Delayed: USD $130/t)
+- **Stranded Asset / Market Adj. / Physical:** cumulative horizon totals discounted at the horizon midpoint, (1 + WACC)^(H/2)
 - **Stranded Asset Factor:** Asset-specific, ranging 2% (Bruce Power, IESO-contracted to 2064) to 22% (Keystone, exposed to oil demand erosion)
 - **Pass-Through:** NEB/FERC-regulated pipelines ~65%; nuclear (IESO) ~85%
 """)
@@ -862,6 +893,34 @@ with st.expander("Methodology & Data Sources — Traceability Reference"):
 **Market Data:** Live FX and market cap via yfinance (TRP, CAD=X)
 
 **Compliance Framework:** TCFD 2021 Recommendations · IFRS S2 Climate-related Disclosures · OSFI Guideline B-15
+""")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── Model Limitations expander ────────────────────────────────────────────────
+with st.expander("Model Limitations & Intended Use"):
+    st.markdown("""
+This is a **directional, screening-level stress test**, not a full asset-cashflow
+valuation. Known simplifications, in the spirit of TCFD's guidance to disclose
+methodology boundaries:
+
+1. **Linear horizon scaling** — physical and stranded losses scale with `Horizon / 26`,
+   which understates tail-event clustering in late decades under high-warming pathways.
+2. **Static damage rates** — hazard damage rates are calibrated point estimates
+   (IPCC AR6 / Swiss Re NatCat benchmarks), not stochastic event distributions;
+   a production model would use Monte Carlo event sets.
+3. **Mid-horizon discounting** — cumulative losses are discounted at the horizon
+   midpoint as an approximation; only the carbon cost stream is discounted year-by-year.
+4. **Uniform pass-through** — a single pass-through rate is applied to all cost
+   components, whereas in practice carbon costs, insurance recoveries, and tariff
+   mechanisms differ by jurisdiction and contract.
+5. **Book value as exposure base** — carrying values from the 2023 Annual Report
+   proxy economic exposure; replacement cost or DCF value would differ.
+6. **No correlation between scenarios and assets** — each asset is stressed
+   independently; portfolio-level diversification and compounding effects are out of scope.
+
+Intended use: board-level risk communication, scenario comparison, and
+identification of assets warranting deeper (asset-cashflow level) analysis.
 """)
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -892,14 +951,14 @@ for col, lbl, val, sub, bdr in [
      f"{cvar_pct:.2f}%",
      f"Risk level: {risk_lvl}", "kpi-neg"),
     (r2c2, "Net Stress Loss (NPV)",
-     f"CAD {total_loss:.1f}M",
-     "After pass-through adjustment", "kpi-warn"),
+     f"CAD {total_loss:,.1f}M",
+     f"Discounted at {wacc*100:.1f}% WACC, after pass-through", "kpi-warn"),
     (r2c3, "Primary Risk Driver",
      primary_driver,
-     f"Transition: CAD {transition_total:.0f}M  |  Physical: CAD {phys_loss_net:.0f}M", "kpi-inf"),
+     f"Transition: CAD {transition_total:,.0f}M  |  Physical: CAD {phys_loss_net:,.0f}M", "kpi-inf"),
     (r2c4, "Stress-Adjusted Value",
-     f"CAD {max(stress_val_M, 0):.0f}M",
-     f"From CAD {book_M:.0f}M baseline  |  {end_year} horizon", "kpi-pos"),
+     f"CAD {max(stress_val_M, 0):,.0f}M",
+     f"From CAD {book_M:,.0f}M baseline  |  {end_year} horizon", "kpi-pos"),
 ]:
     col.markdown(f"""
     <div class="kpi {bdr}">
@@ -935,9 +994,9 @@ with tab0:
     rl_bc   = {"High": "#EF4444", "Moderate": "#F59E0B", "Low": "#22C55E"}[risk_lvl]
     for col, lbl, val, sub, bdr in [
         (e1, "Climate VaR",         f"{cvar_pct:.1f}%",              f"Risk Level: {risk_lvl}",       "kpi-neg"),
-        (e2, "Net Stress Loss",      f"CAD {total_loss:.0f}M",        "After pass-through",            "kpi-warn"),
-        (e3, "Primary Driver",       primary_driver,                  f"Transition: {transition_total:.0f}M | Physical: {phys_loss_net:.0f}M", "kpi-inf"),
-        (e4, "Stress-Adjusted Value",f"CAD {max(stress_val_M,0):.0f}M", f"From CAD {book_M:.0f}M base","kpi-pos"),
+        (e2, "Net Stress Loss",      f"CAD {total_loss:,.0f}M",        "NPV, after pass-through",            "kpi-warn"),
+        (e3, "Primary Driver",       primary_driver,                  f"Transition: {transition_total:,.0f}M | Physical: {phys_loss_net:,.0f}M", "kpi-inf"),
+        (e4, "Stress-Adjusted Value",f"CAD {max(stress_val_M,0):,.0f}M", f"From CAD {book_M:,.0f}M base","kpi-pos"),
         (e5, "Horizon",              f"2024 – {end_year}",            f"{duration} yr · {scenario_name.split(' — ')[0]}","kpi-inf"),
     ]:
         col.markdown(f"""
@@ -948,6 +1007,29 @@ with tab0:
         </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Auto-generated executive takeaway ─────────────────────────────────────
+    _tr_share = (transition_total / total_loss * 100) if total_loss > 0 else 0
+    _ph_share = 100 - _tr_share
+    if primary_driver == "Transition Risk":
+        _driver_line = (f"carbon cost accumulation and stranded-asset exposure account for "
+                        f"~{_tr_share:.0f}% of the modelled loss, so policy trajectory — not "
+                        f"weather — is the dominant valuation question for this asset")
+    else:
+        _driver_line = (f"physical hazard damage ({hazard.lower()}) accounts for "
+                        f"~{_ph_share:.0f}% of the modelled loss, so asset hardening and "
+                        f"insurance strategy matter more than carbon policy for this asset")
+    _pt_line = (f"the {pass_thru}% regulated pass-through absorbs most of the gross exposure"
+                if pass_thru >= 60 else
+                f"the relatively low {pass_thru}% pass-through leaves material residual exposure")
+    st.markdown(f"""
+    <div class="note" style="margin:.2rem 0 .9rem">
+      <b>Takeaway:</b> Under <b>{scenario_name.split(' — ')[0]}</b> over a {duration}-year
+      horizon, {selected.split('(')[0].strip()} carries a present-value climate loss of
+      <b>CAD {total_loss:,.0f}M ({abs(cvar_pct):.1f}% of book)</b>, discounted at a
+      {wacc*100:.1f}% WACC — a <b>{risk_lvl.lower()}</b>-risk classification.
+      {_driver_line.capitalize()}; {_pt_line}.
+    </div>""", unsafe_allow_html=True)
 
     # ── Compare Mode banner ───────────────────────────────────────────────────
     if compare_mode and R2:
@@ -979,7 +1061,7 @@ with tab0:
             "NGFS — Current Policies":           "NGFS Curr. Pol.",
         }
         for sc_n, sc_d in SCENARIOS.items():
-            rs = run_scenario(selected, sc_n, duration, pass_thru, hazard)
+            rs = run_scenario(selected, sc_n, duration, pass_thru, hazard, wacc * 100)
             all_sc_names.append(SC_LBL.get(sc_n, sc_n))
             all_tr.append(rs["transition_total"])
             all_ph.append(rs["phys_loss_net"])
@@ -1014,7 +1096,7 @@ with tab0:
         ))
         for i, (n, t) in enumerate(zip(sn_s, tot_s)):
             fig_dash.add_annotation(
-                x=t, y=n, text=f"CAD {t:.0f}M ({-t/book_M*100:.1f}%)",
+                x=t, y=n, text=f"CAD {t:,.0f}M ({-t/book_M*100:.1f}%)",
                 xanchor="left", yanchor="middle", showarrow=False, xshift=6,
                 font=dict(size=12, color="#1E293B"),
             )
@@ -1144,11 +1226,12 @@ with tab0:
         _chart(fig_heat)
         st.markdown("""
         <div class="mbox" style="font-size:.72rem">
-          <b>How to read:</b> Each cell shows Climate VaR % for a given
+          <b>How to read:</b> Each cell shows discounted Climate VaR % for a given
           WACC and terminal carbon price. <b>Darker red = higher VaR.</b>
-          The blue box marks your current inputs. Use this to identify
-          the non-linear inflection points where small policy changes
-          produce large valuation impacts.
+          Reading left-to-right shows policy sensitivity (higher carbon prices raise
+          losses); reading top-to-bottom shows discount-rate sensitivity (a higher
+          WACC shrinks the present value of future losses). The blue box marks your
+          current inputs.
         </div>""", unsafe_allow_html=True)
 
     # ── EBITDA / FCF impact section ───────────────────────────────────────────
@@ -1199,7 +1282,7 @@ with tab1:
         lats, lons, names, sizes, loss_pcts, types, hazard_labels = [], [], [], [], [], [], []
         for nm, d in ASSETS.items():
             dr   = d["Phys"][SC["key"]]
-            lp   = d["Value_B"] * 1000 * dr * frac / (d["Value_B"] * 1000) * 100
+            lp   = d["Value_B"] * 1000 * dr * frac / MID_DF / (d["Value_B"] * 1000) * 100
             lats.append(d["Lat"])
             lons.append(d["Lon"])
             names.append(nm)
@@ -1285,7 +1368,7 @@ with tab1:
                     unsafe_allow_html=True)
         for nm, d in ASSETS.items():
             dr  = d["Phys"][SC["key"]]
-            pl  = d["Value_B"] * 1000 * dr * frac
+            pl  = d["Value_B"] * 1000 * dr * frac / MID_DF
             sel = nm == selected
             cls = "a-card sel" if sel else "a-card"
             border_note = " (Selected)" if sel else ""
@@ -1295,7 +1378,7 @@ with tab1:
               <div class="a-meta">
                 <span>{d['Type']}</span>
                 <span>CAD {d['Value_B']}B</span>
-                <span style="color:#EF4444;font-weight:600">Est. loss: CAD {pl:.0f}M</span>
+                <span style="color:#EF4444;font-weight:600">Est. loss: CAD {pl:,.0f}M</span>
               </div>
               <div style="font-size:.68rem;color:var(--text-muted);margin-top:3px">{d['Note']}</div>
             </div>""", unsafe_allow_html=True)
@@ -1303,7 +1386,7 @@ with tab1:
         st.markdown(f"""
         <div class="note" style="margin-top:.8rem">
           <b>Total portfolio physical loss ({scenario_name.split(' — ')[0]}):</b><br>
-          CAD {sum(d['Value_B']*1000*d['Phys'][SC['key']]*frac for d in ASSETS.values()):.0f}M
+          CAD {sum(d['Value_B']*1000*d['Phys'][SC['key']]*frac/MID_DF for d in ASSETS.values()):,.0f}M
           across all 5 assets
         </div>""", unsafe_allow_html=True)
 
@@ -1371,7 +1454,7 @@ with tab2:
         sc_short = [s.split(" — ")[0] for s in sc_keys]
         sc_colors = [SCENARIOS[s]["color"] for s in sc_keys]
         asset_dmg = [
-            A["Value_B"] * 1000 * A["Phys"][SCENARIOS[s]["key"]] * frac
+            A["Value_B"] * 1000 * A["Phys"][SCENARIOS[s]["key"]] * frac / MID_DF
             for s in sc_keys
         ]
         fig_sc = go.Figure(go.Bar(
@@ -1414,7 +1497,7 @@ with tab2:
     st.markdown('<div class="sec" style="font-size:.85rem">Cross-Asset Physical Loss Comparison</div>',
                 unsafe_allow_html=True)
     cmp_names = [nm.split(" (")[0] for nm in ASSETS]
-    cmp_gross = [d["Value_B"]*1000*d["Phys"][SC["key"]]*frac for d in ASSETS.values()]
+    cmp_gross = [d["Value_B"]*1000*d["Phys"][SC["key"]]*frac/MID_DF for d in ASSETS.values()]
     cmp_net   = [g*(1-pass_thru/100) for g in cmp_gross]
     cmp_df = sorted(zip(cmp_names, cmp_gross, cmp_net), key=lambda x: -x[1])
 
@@ -1446,7 +1529,7 @@ with tab2:
 
     st.markdown(f"""
     <div class="mbox">
-      <b>Physical Risk Model:</b> EAL = AssetValue x DamageRate({damage_rate:.4f}) x (Horizon/26).
+      <b>Physical Risk Model (NPV):</b> EAL = AssetValue x DamageRate({damage_rate:.4f}) x (Horizon/26) / (1+WACC)^(H/2).
       Damage rates are scenario- and asset-specific, calibrated to TC Energy's geographic exposure
       profiles using IPCC AR6 WG2 regional projections and Swiss Re NatCat energy sector benchmarks.
       Net loss reflects regulated tariff pass-through of {pass_thru}%.
@@ -1462,9 +1545,9 @@ with tab3:
 
     t1, t2, t3 = st.columns(3)
     for col, lbl, val, sub, bdr in [
-        (t1, "Cumulative Carbon Tax",
-         f"CAD {cum_carbon_tax:.1f}M",
-         f"{A['Emissions_Mt']} Mt CO2e x escalating price path", "kpi-neg"),
+        (t1, "PV of Carbon Tax",
+         f"CAD {cum_carbon_tax:,.1f}M",
+         f"{A['Emissions_Mt']} Mt CO2e x price path, discounted at {wacc*100:.1f}%", "kpi-neg"),
         (t2, "Stranded Asset Loss",
          f"CAD {stranded_loss:.1f}M",
          f"Stranding factor {A['Stranded_F']*100:.0f}% x {stranded_mult:.1f}x scenario mult.", "kpi-warn"),
@@ -1610,11 +1693,11 @@ with tab4:
 
     v1, v2, v3, v4 = st.columns(4)
     for col, lbl, val, sub in [
-        (v1, "Baseline Book Value",    f"CAD {book_M:.0f}M", "2023 annual report carrying value"),
-        (v2, "Transition Impact (net)",f"CAD {transition_total:.1f}M", "After pass-through adjustment"),
-        (v3, "Physical Impact (net)",  f"CAD {phys_loss_net:.1f}M",   f"After {pass_thru}% pass-through"),
-        (v4, "Stress-Adjusted Value",  f"CAD {max(stress_val_M,0):.0f}M",
-         f"Climate VaR: {cvar_pct:.2f}%"),
+        (v1, "Baseline Book Value",    f"CAD {book_M:,.0f}M", "2023 annual report carrying value"),
+        (v2, "Transition Impact (net)",f"CAD {transition_total:,.1f}M", "NPV, after pass-through"),
+        (v3, "Physical Impact (net)",  f"CAD {phys_loss_net:,.1f}M",   f"After {pass_thru}% pass-through"),
+        (v4, "Stress-Adjusted Value",  f"CAD {max(stress_val_M,0):,.0f}M",
+         f"Climate VaR: {cvar_pct:.2f}% | {wacc*100:.1f}% WACC"),
     ]:
         col.markdown(f"""
         <div class="itile">
@@ -1688,14 +1771,15 @@ with tab4:
         climate_wacc_premium = min(abs(cvar_pct) * 0.015, 1.5)   # 1.5 bps per % VaR, capped 150 bps
         st.markdown(f"""
         <div class="mbox" style="font-size:.77rem">
-          <b>Climate-Adjusted WACC (Forward-Looking):</b> Applied WACC = {wacc*100:.1f}%.
+          <b>Climate-Adjusted WACC (Forward-Looking):</b> All loss figures above are
+          present values discounted at the applied WACC of {wacc*100:.1f}%.
           Under frontier ESG valuation frameworks (MSCI Climate VaR, PCAF), high-emission
-          assets carry a <i>Climate Risk Premium</i> proportional to their VaR exposure.
+          assets carry an additional <i>Climate Risk Premium</i> proportional to their VaR exposure.
           For this asset at {abs(cvar_pct):.1f}% VaR, the estimated premium is
           <b>+{climate_wacc_premium:.2f}%</b>, implying an adjusted rate of
-          <b>{(wacc*100 + climate_wacc_premium):.2f}%</b>.
-          Future iterations of this model will apply a dynamic climate-adjusted discount
-          rate, where the cost of capital increases proportionally to Scope 1 emission intensity.
+          <b>{(wacc*100 + climate_wacc_premium):.2f}%</b> — you can test this directly by
+          raising the WACC input in the sidebar. A future iteration could apply the
+          premium endogenously, scaling the discount rate with Scope 1 emission intensity.
         </div>""", unsafe_allow_html=True)
 
     with w2:
@@ -1785,14 +1869,11 @@ with tab4:
         compare_layout, compare_keys, compare_short, compare_cols, compare_bgs, compare_bords
     ):
         sc_d = SCENARIOS[nk]
-        sm   = 1.4 if sc_d["high_tax"] else 1.0
-        cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
-        ct_s = float((A["Emissions_Mt"]*cp_s).sum())
-        sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm*frac
-        ma_s = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
-        pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
-        tot_s = (ct_s+sl_s+ma_s+pl_s)*(1-net_pass_thru)
-        cv_s  = tot_s/book_M*100
+        rs_p  = run_scenario(selected, nk, duration, pass_thru, hazard, wacc * 100)
+        tot_s = rs_p["total_loss"]
+        cv_s  = abs(rs_p["cvar_pct"])
+        tr_n  = rs_p["transition_total"]
+        ph_n  = rs_p["phys_loss_net"]
         is_active = nk == scenario_name
         outline = f"2px solid {nc}" if is_active else f"1px solid {nbr}"
         badge = (' <span style="font-size:.65rem;background:' + nc
@@ -1811,15 +1892,15 @@ with tab4:
             </div>
             <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid var(--border)">
               <div style="font-size:.6rem;color:var(--text-sec);font-weight:600;text-transform:uppercase">Net Loss</div>
-              <div style="font-size:1.05rem;font-weight:700;color:var(--text-h)">CAD {tot_s:.0f}M</div>
+              <div style="font-size:1.05rem;font-weight:700;color:var(--text-h)">CAD {tot_s:,.0f}M</div>
             </div>
             <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #BFDBFE">
               <div style="font-size:.6rem;color:#1D4ED8;font-weight:600;text-transform:uppercase">Transition Risk</div>
-              <div style="font-size:.9rem;font-weight:700;color:#1D4ED8">CAD {(ct_s+sl_s+ma_s)*(1-net_pass_thru):.0f}M</div>
+              <div style="font-size:.9rem;font-weight:700;color:#1D4ED8">CAD {tr_n:,.0f}M</div>
             </div>
             <div style="background:white;border-radius:6px;padding:.45rem .6rem;border:1px solid #FED7AA">
               <div style="font-size:.6rem;color:#EA580C;font-weight:600;text-transform:uppercase">Physical Risk</div>
-              <div style="font-size:.9rem;font-weight:700;color:#EA580C">CAD {pl_s*(1-net_pass_thru):.0f}M</div>
+              <div style="font-size:.9rem;font-weight:700;color:#EA580C">CAD {ph_n:,.0f}M</div>
             </div>
           </div>
           <div style="font-size:.69rem;color:var(--text-sec);line-height:1.5">{sc_d['risk_focus']}</div>
@@ -1831,14 +1912,12 @@ with tab4:
     compare_fig = make_subplots(rows=1, cols=n_compare,
                                 subplot_titles=compare_short, shared_yaxes=True)
     for i, (nk, nc) in enumerate(zip(compare_keys, compare_cols), 1):
-        sc_d = SCENARIOS[nk]
-        sm   = 1.4 if sc_d["high_tax"] else 1.0
-        cp_s = np.array([CARBON_SCHEDULE.get(y, 80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
-        ct_n = float((A["Emissions_Mt"]*cp_s).sum())*(1-net_pass_thru)
-        sl_n = A["Value_B"]*1000*A["Stranded_F"]*sm*frac*(1-net_pass_thru)
-        ma_n = (A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0)*(1-net_pass_thru)
-        pl_n = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac*(1-net_pass_thru)
-        sv   = max(book_M-ct_n-sl_n-ma_n-pl_n, 0)
+        rs_w = run_scenario(selected, nk, duration, pass_thru, hazard, wacc * 100)
+        ct_n = rs_w["cum_carbon_tax"] * (1 - net_pass_thru)
+        sl_n = rs_w["stranded_loss"]  * (1 - net_pass_thru)
+        ma_n = rs_w["mkt_adj"]        * (1 - net_pass_thru)
+        pl_n = rs_w["phys_loss_net"]
+        sv   = max(book_M - ct_n - sl_n - ma_n - pl_n, 0)
         compare_fig.add_trace(go.Waterfall(
             orientation="v",
             measure=["absolute","relative","relative","relative","relative","total"],
@@ -1874,17 +1953,12 @@ with tab4:
     }
     sc_losses = []
     for sc_n, sc_d in SCENARIOS.items():
-        ht = sc_d["high_tax"]; sm2 = 1.4 if ht else 1.0
-        cp_s = np.array([CARBON_SCHEDULE.get(y,80+(sc_d["cp_end"]-80)*(y-2024)/26) for y in years])
-        ct_s = float((A["Emissions_Mt"]*cp_s).sum())
-        sl_s = A["Value_B"]*1000*A["Stranded_F"]*sm2*frac
-        ma_s = A["Value_B"]*1000*0.04 if "Pipeline" in A["Type"] else 0
-        pl_s = A["Value_B"]*1000*A["Phys"][sc_d["key"]]*frac
+        rs_b = run_scenario(selected, sc_n, duration, pass_thru, hazard, wacc * 100)
         sc_losses.append({
             "Scenario":   SC_LABEL.get(sc_n, sc_n),
-            "Transition": (ct_s+sl_s+ma_s)*(1-net_pass_thru),
-            "Physical":   pl_s*(1-net_pass_thru),
-            "Total":      (ct_s+sl_s+ma_s+pl_s)*(1-net_pass_thru),
+            "Transition": rs_b["transition_total"],
+            "Physical":   rs_b["phys_loss_net"],
+            "Total":      rs_b["total_loss"],
             "Active":     sc_n == scenario_name,
         })
     sc_df = pd.DataFrame(sc_losses).sort_values("Total", ascending=True)
@@ -1904,7 +1978,7 @@ with tab4:
     for _, row in sc_df.iterrows():
         fig_sc2.add_annotation(
             x=row["Total"], y=row["Scenario"],
-            text=f"CAD {row['Total']:.0f}M",
+            text=f"CAD {row['Total']:,.0f}M",
             xanchor="left", yanchor="middle", showarrow=False, xshift=6,
             font=dict(size=9, color="#1E293B"),
         )
@@ -2012,7 +2086,8 @@ with tab5:
                     f"asset demonstrates a <b>{risk_lvl.lower()} sensitivity</b> to integrated climate-related "
                     f"financial factors over the {duration}-year assessment window. "
                     f"The aggregated Climate Value-at-Risk (VaR) is calculated at <b>{abs(cvar_pct):.2f}%</b>, "
-                    f"representing a total projected NPV impairment of <b>CAD {total_loss:.1f} Million</b> "
+                    f"representing a total projected NPV impairment of <b>CAD {total_loss:,.1f} Million</b> "
+                    f"(discounted at a {wacc*100:.1f}% WACC) "
                     f"against the baseline valuation of CAD {A['Value_B']} Billion, after applying a "
                     f"regulated tariff pass-through rate of {pass_thru}%. "
                     f"The primary financial risk catalyst is identified as <b>{primary_driver}</b>.",
@@ -2036,8 +2111,8 @@ with tab5:
                      f"CAD {mkt_adj:.1f}M", f"CAD {mkt_adj*(1-net_pass_thru):.1f}M",
                      f"{mkt_adj*(1-net_pass_thru)/book_M*100:.2f}%"],
                     ["TOTAL IMPAIRMENT", "",
-                     f"CAD {int(total_loss/(1-net_pass_thru+0.0001))}M",
-                     f"CAD {total_loss:.1f}M", f"{abs(cvar_pct):.2f}%"],
+                     f"CAD {gross_total:,.0f}M",
+                     f"CAD {total_loss:,.1f}M", f"{abs(cvar_pct):.2f}%"],
                 ]
                 attr_tbl = Table(attr_data, colWidths=[4*cm, 4.5*cm, 2.8*cm, 2.8*cm, 2.4*cm])
                 attr_tbl.setStyle(TableStyle([
@@ -2262,7 +2337,7 @@ with tab5:
         + '<td ' + tdr + '>' + str(round(mkt_adj * (1 - net_pass_thru) / book_M * 100, 2)) + '%</td></tr>'
         + '<tr style="background:var(--bg-card-alt);font-weight:700">'
         + '<td style="padding:8px 11px">Total Impairment</td><td style="padding:8px 11px"></td>'
-        + '<td style="padding:8px 11px;text-align:right">CAD ' + str(int(total_loss / (1 - net_pass_thru + 0.0001))) + 'M</td>'
+        + '<td style="padding:8px 11px;text-align:right">CAD ' + f"{gross_total:,.0f}" + 'M</td>'
         + '<td style="padding:8px 11px;text-align:right;color:#DC2626">CAD ' + str(round(total_loss, 1)) + 'M</td>'
         + '<td style="padding:8px 11px;text-align:right;color:#DC2626">' + str(round(abs(cvar_pct), 2)) + '%</td></tr>'
         + '</table>'
@@ -2294,7 +2369,8 @@ with tab5:
         + ' sensitivity</b> to integrated climate-related financial factors over the '
         + str(duration) + '-year assessment window. The aggregated Climate Value-at-Risk (VaR) is '
         + 'calculated at <b>' + str(round(cvar_pct, 2)) + '%</b>, representing a total projected '
-        + 'NPV impairment of <b>CAD ' + str(round(total_loss, 1)) + ' Million</b> against the '
+        + 'NPV impairment of <b>CAD ' + f"{total_loss:,.1f}" + ' Million</b> (discounted at a '
+        + str(round(wacc * 100, 1)) + '% WACC) against the '
         + 'baseline asset valuation of CAD ' + str(A["Value_B"]) + ' Billion, after applying a '
         + 'regulated tariff pass-through rate of ' + str(pass_thru) + '%.</p>'
         + '<p>The primary financial risk catalyst is identified as <b>' + primary_driver
@@ -2347,7 +2423,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(f"""
 <div style="text-align:center;padding:.9rem 0;border-top:1px solid #E2E8F0;
             font-size:.73rem;color:var(--text-muted)">
-  TC Energy Corporation (TSX/NYSE: TRP) — Climate Risk Stress Terminal &nbsp;|&nbsp;
+  TC Energy Corporation (TSX/NYSE: TRP) — Climate Risk Stress Terminal v5.0 &nbsp;|&nbsp;
   Source: TC Energy 2024 Sustainability Report &amp; ESG Data Sheet &nbsp;|&nbsp;
   Live FX: {FX:.4f} CAD &nbsp;|&nbsp;
   {MKT['ts']} &nbsp;|&nbsp; TCFD / IFRS S2 Aligned
