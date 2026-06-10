@@ -1,5 +1,5 @@
 """
-TC Energy — Climate Risk Stress Testing Terminal  v5.0
+ClimaVaR Terminal v5.2 — Climate Risk Analytics Platform (workspace: TC Energy / TRP)
 Real TC Energy 2024 public disclosure data · No Mapbox token needed (Scattergeo)
 
 v5.0 highlights:
@@ -9,6 +9,15 @@ v5.0 highlights:
   · Single shared compute engine (_compute) — every chart, panel, and report
     reconciles to the same numbers
   · Auto-generated executive takeaway + Model Limitations disclosure
+  · NEW Portfolio View tab — all-asset aggregation, loss contribution,
+    treemap concentration map, and annual loss time-path by scenario
+  · Carbon price path is now continuous: post-2030 extrapolation anchored
+    at the $170/t federal level instead of resetting to the 2024 base
+  · v5.2: platform identity layer — the tool is the product, the analysed
+    company is the loaded workspace. Product wordmark + version badge,
+    breadcrumb top bar with live state chips, JetBrains Mono tabular
+    numerals on all metrics, hover micro-interactions, product footer.
+    Rebrand via APP_NAME / APP_TAGLINE / APP_VER / APP_ORG constants.
 
 Install: pip install streamlit plotly pandas numpy yfinance reportlab
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -38,9 +47,17 @@ def _df(df, **kw):
         st.dataframe(df, use_container_width=True, **kw)
 
 
+# ── Product identity — rebrand the platform in ONE place ─────────────────────
+# The tool is the product; the analysed company is just the loaded workspace.
+APP_NAME    = "ClimaVaR Terminal"
+APP_TAGLINE = "Climate Risk Analytics Platform"
+APP_VER     = "v5.2"
+APP_ORG     = "DSTA Advisory"
+
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="TC Energy (TRP) Climate Stress Terminal",
+    page_title=f"{APP_NAME} — TC Energy (TRP)",
+    page_icon="🌐",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -419,6 +436,58 @@ div[data-testid="stExpander"] {
    DATAFRAME — readable in dark mode
    ═══════════════════════════════════════════════════════════ */
 [data-testid="stDataFrame"] { border-radius: 8px !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   PLATFORM CHROME (v5.2) — app/software identity layer
+   ═══════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+/* Data values read as instrument readouts: mono + tabular numerals */
+.kpi-val, .itile .iv {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', monospace !important;
+  font-feature-settings: 'tnum';
+  letter-spacing: -.4px;
+}
+[data-testid="stDataFrame"] * { font-feature-settings: 'tnum'; }
+
+/* Subtle hover lift — interface, not document */
+.kpi, .itile, .a-card {
+  transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+}
+.kpi:hover, .itile:hover {
+  box-shadow: 0 4px 16px rgba(13,33,55,.10);
+  border-color: var(--border-md);
+  transform: translateY(-1px);
+}
+
+/* Status pills — live app state in the header */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 11px; border-radius: 999px;
+  font-size: .68rem; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-sec); white-space: nowrap;
+}
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+/* Breadcrumb + compact app header */
+.crumb {
+  font-size: .68rem; font-weight: 700; color: var(--text-muted) !important;
+  text-transform: uppercase; letter-spacing: .09em; margin-bottom: 4px;
+}
+.topbar { display: flex; justify-content: space-between; align-items: flex-end;
+          gap: 14px; flex-wrap: wrap; }
+.topbar .page-hdr h1 { font-size: 1.32rem; }
+.topbar .chips { display: flex; gap: 7px; flex-wrap: wrap; padding-bottom: 3px; }
+
+/* Version badge */
+.ver-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .6rem; font-weight: 700; color: #7DD3FC;
+  background: #0C2340; border: 1px solid #1E3A5F;
+  border-radius: 999px; padding: 2px 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -561,6 +630,21 @@ CARBON_SCHEDULE = {
     2028: 140, 2029: 155, 2030: 170
 }
 
+def carbon_price(y, cp_end):
+    """Continuous carbon price path (CAD $/t CO2e).
+
+    2024–2030: actual legislated federal schedule ($80 → $170/t).
+    Post-2030: linear interpolation anchored at the 2030 federal level
+    ($170/t) toward the scenario's terminal 2050 price — so the path is
+    continuous at 2030 instead of resetting to the 2024 base.
+    Scenarios with cp_end below $170 (e.g. Current Policies plateau,
+    RCP 8.5 policy stagnation) flatten or drift down rather than dropping
+    discontinuously.
+    """
+    if y in CARBON_SCHEDULE:
+        return CARBON_SCHEDULE[y]
+    return 170 + (cp_end - 170) * (y - 2030) / 20.0
+
 # ── NGFS Phase 4 carbon price proxies (USD/t, converted to CAD ≈ ×1.38) ─────
 # Source: NGFS Phase 4 Scenarios (2023), IEA World Energy Outlook 2024
 # Net Zero 2050: ~USD $250/t by 2050 → CAD ~$345/t
@@ -642,10 +726,7 @@ def _compute(asset_key, scenario_key, duration_yrs, pass_thru_pct, hazard_sel,
     cp_end = SC["cp_end"] if cp_end_override is None else cp_end_override
     yrs = np.arange(2024, 2024 + duration_yrs + 1)
     frc = duration_yrs / 26.0
-    cp  = np.array([
-        CARBON_SCHEDULE.get(y, 80 + (cp_end - 80) * (y - 2024) / 26)
-        for y in yrs
-    ])
+    cp  = np.array([carbon_price(y, cp_end) for y in yrs])
     # Present value of the annual carbon cost stream, discounted at WACC
     disc_factors = (1 + wacc_frac) ** (yrs - 2024)
     cct  = float((A["Emissions_Mt"] * cp / disc_factors).sum())
@@ -707,15 +788,28 @@ def build_heatmap(asset_key, sc_key, dur, pt, haz, wacc_list, cp_list):
 with st.sidebar:
     st.markdown(f"""
     <div style="padding:.5rem 0 .9rem;border-bottom:1px solid rgba(255,255,255,.07)">
-      <div style="font-size:1.05rem;font-weight:700;color:#F1F5F9;letter-spacing:-.2px">
-        TC Energy
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:27px;height:27px;border-radius:7px;flex:none;
+                    background:linear-gradient(135deg,#3B82F6 0%,#059669 100%);
+                    display:flex;align-items:center;justify-content:center;
+                    color:white;font-weight:800;font-size:.85rem;
+                    font-family:'JetBrains Mono',monospace">◢</div>
+        <div style="min-width:0">
+          <div style="font-size:.95rem;font-weight:700;color:#F1F5F9;letter-spacing:-.2px;
+                      font-family:'JetBrains Mono',monospace">{APP_NAME}</div>
+          <div style="font-size:.58rem;color:#475569;letter-spacing:.08em;
+                      text-transform:uppercase;margin-top:1px">{APP_TAGLINE}</div>
+        </div>
+        <span class="ver-pill" style="margin-left:auto">{APP_VER}</span>
       </div>
-      <div style="font-size:.7rem;color:var(--text-sec);margin-top:1px">
-        TSX / NYSE: <span style="color:var(--text-muted);font-weight:600">TRP</span>
-      </div>
-      <div style="font-size:.68rem;color:#475569;margin-top:2px">
-        Climate Risk Stress Terminal
-      </div>
+    </div>
+    <div style="margin-top:.9rem;background:#0A1929;border:1px solid #1E3A5F;
+                border-radius:8px;padding:.6rem .8rem">
+      <div style="font-size:.56rem;font-weight:700;letter-spacing:.11em;color:#334155;
+                  text-transform:uppercase;margin-bottom:3px">Workspace</div>
+      <div style="font-size:.86rem;font-weight:700;color:#E2E8F0">TC Energy Corporation</div>
+      <div style="font-size:.65rem;color:#64748B;margin-top:1px">
+        TSX / NYSE: TRP &nbsp;·&nbsp; 5 assets &nbsp;·&nbsp; 2024 disclosures</div>
     </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="sb-lbl">Asset Selection</div>', unsafe_allow_html=True)
@@ -839,11 +933,25 @@ else:
     R2 = None; SC2 = None
 
 
-# ── Page header ───────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="page-hdr">
-  <h1>TC Energy Corporation — Climate Risk Stress Testing</h1>
-  <p>TSX/NYSE: TRP &nbsp;·&nbsp; Asset-Level Valuation Sensitivity and Hazard Analysis &nbsp;·&nbsp; TCFD / IFRS S2 Aligned</p>
+# ── Page header — app top bar with live state chips ──────────────────────────
+_live_dot = "#22C55E" if MKT["live"] else "#F59E0B"
+_live_lbl = "Live data" if MKT["live"] else "Fallback data"
+st.markdown(f"""
+<div class="topbar">
+  <div>
+    <div class="crumb">Workspace &nbsp;/&nbsp; TC Energy (TRP) &nbsp;/&nbsp; Stress Analysis</div>
+    <div class="page-hdr">
+      <h1>Climate Risk Stress Testing</h1>
+      <p>Asset-Level Valuation Sensitivity &amp; Hazard Analysis &nbsp;·&nbsp; TCFD / IFRS S2 / OSFI B-15 aligned</p>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="pill"><span class="dot" style="background:{SC['color']}"></span>{scenario_name.split(' — ')[0]}</span>
+    <span class="pill">{duration}-yr horizon</span>
+    <span class="pill">WACC {wacc*100:.1f}%</span>
+    <span class="pill">Pass-through {pass_thru}%</span>
+    <span class="pill"><span class="dot" style="background:{_live_dot}"></span>{_live_lbl}</span>
+  </div>
 </div>
 <hr class="hdr-rule">
 """, unsafe_allow_html=True)
@@ -873,7 +981,7 @@ with st.expander("Methodology & Data Sources — Traceability Reference"):
 `Transition Loss = (PV Carbon + Stranded + Market Adj.) × (1 − Pass-Through%)`
 
 - **Carbon Tax:** annual cost stream discounted year-by-year at the applied WACC; prices follow Canada's Federal Carbon Price Schedule (actual 2024–2030: $80→$170/t; ECCC 2024)
-- Post-2030 extrapolated by scenario using NGFS Phase 4 (2023) price pathways (Net Zero: USD $250/t; Delayed: USD $130/t)
+- Post-2030 path anchored at the 2030 federal level ($170/t) and interpolated to the scenario's 2050 terminal price (NGFS Phase 4: Net Zero USD $250/t; Delayed USD $130/t) — continuous at 2030
 - **Stranded Asset / Market Adj. / Physical:** cumulative horizon totals discounted at the horizon midpoint, (1 + WACC)^(H/2)
 - **Stranded Asset Factor:** Asset-specific, ranging 2% (Bruce Power, IESO-contracted to 2064) to 22% (Keystone, exposed to oil demand erosion)
 - **Pass-Through:** NEB/FERC-regulated pipelines ~65%; nuclear (IESO) ~85%
@@ -971,12 +1079,13 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tabP, tab5 = st.tabs([
     "Executive Dashboard",
     "Asset Geography",
     "Physical Risk",
     "Transition Risk",
     "Climate VaR Bridge",
+    "Portfolio View",
     "Management Report",
 ])
 
@@ -1618,10 +1727,7 @@ with tab3:
             "NGFS — Current Policies":           "NGFS Current Policies",
         }
         for sc_n, sc_d in SCENARIOS.items():
-            cp_full = np.array([
-                CARBON_SCHEDULE.get(y, 80 + (sc_d["cp_end"] - 80) * (y-2024)/26)
-                for y in yrs_full
-            ])
+            cp_full = np.array([carbon_price(y, sc_d["cp_end"]) for y in yrs_full])
             lw = 2.5 if sc_n == scenario_name else 1.2
             dash = "solid" if sc_n == scenario_name else "dash"
             fig_cp.add_trace(go.Scatter(
@@ -1678,7 +1784,7 @@ with tab3:
       <b>Canada Federal Carbon Pricing (actual schedule):</b>
       2024: CAD $80/t — 2025: $95/t — 2026: $110/t — 2027: $125/t —
       2028: $140/t — 2029: $155/t — 2030: $170/t (federal target).
-      Post-2030 path extrapolated by scenario.
+      Post-2030 path anchored at $170/t and interpolated to each scenario's 2050 terminal price.
       Pass-through rate {pass_thru}% reflects TC Energy's regulated tariff recovery capacity,
       calibrated per asset type (pipeline: ~65%, nuclear: ~85%).
     </div>""", unsafe_allow_html=True)
@@ -1991,6 +2097,211 @@ with tab4:
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
     _chart(fig_sc2)
+
+
+# ════════════════════════════════════════════════════════════════
+#  TAB P — PORTFOLIO VIEW
+# ════════════════════════════════════════════════════════════════
+with tabP:
+    st.markdown('<div class="sec">Portfolio View — All-Asset Aggregation & Loss Timing</div>',
+                unsafe_allow_html=True)
+
+    # ── Portfolio aggregation ─────────────────────────────────────────────────
+    # Each asset is stressed under the SAME scenario / horizon / WACC from the
+    # sidebar, but with its OWN regulated pass-through rate and its
+    # scenario-aggregate hazard rate (hazard_sel=None → falls back to A["Phys"]).
+    port_rows = []
+    for nm, d in ASSETS.items():
+        rp = run_scenario(nm, scenario_name, duration,
+                          int(d["PassThru"] * 100), None, wacc * 100)
+        port_rows.append({
+            "Asset":        nm,
+            "Short":        nm.split(" (")[0],
+            "Type":         d["Type"],
+            "Book_M":       rp["book_M"],
+            "Transition_M": rp["transition_total"],
+            "Physical_M":   rp["phys_loss_net"],
+            "Loss_M":       rp["total_loss"],
+            "VaR_pct":      abs(rp["cvar_pct"]),
+            "Driver":       rp["primary_driver"],
+            "Risk":         rp["risk_lvl"],
+            "PassThru":     int(d["PassThru"] * 100),
+        })
+    port_df    = pd.DataFrame(port_rows)
+    port_book  = port_df["Book_M"].sum()
+    port_loss  = port_df["Loss_M"].sum()
+    port_var   = port_loss / port_book * 100
+    port_df["Contrib_pct"] = port_df["Loss_M"] / port_loss * 100
+    top_row    = port_df.sort_values("Loss_M", ascending=False).iloc[0]
+    port_rl    = "High" if port_var > 15 else ("Moderate" if port_var > 5 else "Low")
+
+    pk1, pk2, pk3, pk4 = st.columns(4)
+    for col, lbl, val, sub, bdr in [
+        (pk1, "Portfolio Book Value",  f"CAD {port_book:,.0f}M",
+         "5 assets · 2023 carrying values", "kpi-inf"),
+        (pk2, "Portfolio Climate VaR", f"{port_var:.2f}%",
+         f"Risk level: {port_rl} · {scenario_name.split(' — ')[0]}", "kpi-neg"),
+        (pk3, "Portfolio Net Loss (NPV)", f"CAD {port_loss:,.0f}M",
+         f"Discounted at {wacc*100:.1f}% WACC", "kpi-warn"),
+        (pk4, "Top Contributor",       top_row["Short"],
+         f"{top_row['Contrib_pct']:.0f}% of portfolio loss · {top_row['Driver']}", "kpi-pos"),
+    ]:
+        col.markdown(f"""
+        <div class="kpi {bdr}">
+          <div class="kpi-lbl">{lbl}</div>
+          <div class="kpi-val">{val}</div>
+          <div class="kpi-sub">{sub}</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="note" style="margin:.8rem 0 1rem">
+      <b>Portfolio takeaway:</b> Under {scenario_name.split(' — ')[0]} over {duration} years,
+      the five-asset portfolio carries a present-value climate loss of
+      <b>CAD {port_loss:,.0f}M ({port_var:.1f}% of CAD {port_book:,.0f}M book)</b>.
+      Concentration matters: <b>{top_row['Short']}</b> alone contributes
+      {top_row['Contrib_pct']:.0f}% of the loss — diversification across asset types and
+      geographies is itself a climate risk management lever. Each asset is modelled with
+      its own regulated pass-through rate (45–85%), unlike the single-asset tabs which
+      apply the sidebar slider.
+    </div>""", unsafe_allow_html=True)
+
+    pcol1, pcol2 = st.columns([3, 2])
+
+    with pcol1:
+        # Contribution stacked bar — transition vs physical, sorted by total loss
+        pc = port_df.sort_values("Loss_M", ascending=True)
+        fig_port = go.Figure()
+        fig_port.add_trace(go.Bar(
+            y=pc["Short"], x=pc["Transition_M"], orientation="h",
+            name="Transition (net)", marker_color="#1D4ED8", marker_line=dict(width=0),
+        ))
+        fig_port.add_trace(go.Bar(
+            y=pc["Short"], x=pc["Physical_M"], orientation="h",
+            name="Physical (net)", marker_color="#EA580C", marker_line=dict(width=0),
+        ))
+        for _, r_ in pc.iterrows():
+            fig_port.add_annotation(
+                x=r_["Loss_M"], y=r_["Short"],
+                text=f"CAD {r_['Loss_M']:,.0f}M · {r_['Contrib_pct']:.0f}% of portfolio",
+                xanchor="left", yanchor="middle", showarrow=False, xshift=6,
+                font=dict(size=11, color="#1E293B"),
+            )
+        fig_port.update_layout(
+            title=dict(text=f"Loss Contribution by Asset — {scenario_name.split(' — ')[0]}, {duration}-yr horizon",
+                       font=dict(size=13, color="#0D2137")),
+            height=320, template="plotly_white", barmode="stack",
+            xaxis=dict(title="Net Loss NPV (CAD $M)", tickfont=dict(size=12, color="#1E293B")),
+            yaxis=dict(tickfont=dict(size=12, color="#1E293B")),
+            legend=dict(font=dict(size=12, color="#1E293B"), orientation="h", y=-0.25),
+            margin=dict(t=40, b=60, l=10, r=170),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        )
+        _chart(fig_port)
+
+    with pcol2:
+        # Treemap — size = book value, colour = Climate VaR %
+        fig_tree = go.Figure(go.Treemap(
+            labels=port_df["Short"],
+            parents=["TC Energy Portfolio"] * len(port_df),
+            values=port_df["Book_M"],
+            marker=dict(
+                colors=port_df["VaR_pct"],
+                colorscale=[[0, "#F0FDF4"], [0.4, "#FEF3C7"], [0.75, "#FECACA"], [1, "#7F1D1D"]],
+                colorbar=dict(title=dict(text="VaR %", font=dict(size=11, color="#1E293B")),
+                              thickness=12, tickfont=dict(size=11, color="#1E293B")),
+                line=dict(width=2, color="white"),
+            ),
+            customdata=np.stack([port_df["Loss_M"], port_df["VaR_pct"],
+                                 port_df["Contrib_pct"]], axis=-1),
+            texttemplate="<b>%{label}</b><br>CAD %{value:,.0f}M book<br>VaR %{customdata[1]:.1f}%",
+            textfont=dict(size=12),
+            hovertemplate=("<b>%{label}</b><br>Book: CAD %{value:,.0f}M<br>"
+                           "Loss: CAD %{customdata[0]:,.0f}M<br>"
+                           "Climate VaR: %{customdata[1]:.1f}%<br>"
+                           "Portfolio contribution: %{customdata[2]:.0f}%<extra></extra>"),
+            branchvalues="total",
+        ))
+        fig_tree.update_layout(
+            title=dict(text="Size = Book Value · Colour = Climate VaR %",
+                       font=dict(size=12, color="#0D2137")),
+            height=320, margin=dict(t=35, b=10, l=0, r=0),
+            paper_bgcolor="rgba(0,0,0,0)",
+        )
+        _chart(fig_tree)
+
+    with st.expander("Portfolio Breakdown Table"):
+        show_df = port_df[["Asset", "Type", "Book_M", "Transition_M", "Physical_M",
+                           "Loss_M", "VaR_pct", "Contrib_pct", "Driver", "Risk", "PassThru"]].copy()
+        show_df.columns = ["Asset", "Type", "Book (CAD $M)", "Transition Net (CAD $M)",
+                           "Physical Net (CAD $M)", "Total Loss NPV (CAD $M)", "Climate VaR %",
+                           "Portfolio Contribution %", "Primary Driver", "Risk Level",
+                           "Pass-Through %"]
+        for c in ["Book (CAD $M)", "Transition Net (CAD $M)", "Physical Net (CAD $M)",
+                  "Total Loss NPV (CAD $M)"]:
+            show_df[c] = show_df[c].map(lambda v: f"{v:,.0f}")
+        for c in ["Climate VaR %", "Portfolio Contribution %"]:
+            show_df[c] = show_df[c].map(lambda v: f"{v:.1f}%")
+        _df(show_df.sort_values("Total Loss NPV (CAD $M)",
+                                key=lambda s: s.str.replace(",", "").astype(float),
+                                ascending=False), hide_index=True)
+        st.download_button(
+            "Download Portfolio Results (CSV)",
+            data=port_df.to_csv(index=False).encode(),
+            file_name=f"TRP_portfolio_climate_var_{scenario_name.split(' — ')[0].replace(' ','_')}_{date.today()}.csv",
+            mime="text/csv",
+        )
+
+    # ── Annual loss time-path — WHEN do the losses hit ───────────────────────
+    st.markdown('<div class="sec" style="font-size:.88rem;margin-top:1rem">'
+                'Loss Timing — Annual Portfolio Climate Cost by Scenario (nominal)</div>',
+                unsafe_allow_html=True)
+
+    yrs_tp = np.arange(2024, 2024 + duration + 1)
+    fig_tp = go.Figure()
+    for sc_n, sc_d in SCENARIOS.items():
+        annual = []
+        for y in yrs_tp:
+            cp_y = carbon_price(y, sc_d["cp_end"])
+            carbon_y = sum(d["Emissions_Mt"] * cp_y * (1 - d["PassThru"])
+                           for d in ASSETS.values())
+            phys_y = sum(d["Value_B"] * 1000 * d["Phys"][sc_d["key"]] / 26
+                         * (1 - d["PassThru"]) for d in ASSETS.values())
+            annual.append(carbon_y + phys_y)
+        is_sel = sc_n == scenario_name
+        fig_tp.add_trace(go.Scatter(
+            x=yrs_tp, y=annual,
+            name=sc_n.split(" — ")[0] if sc_n.startswith("RCP") else sc_n.replace("NGFS — ", "NGFS "),
+            line=dict(color=sc_d["color"], width=3 if is_sel else 1.4,
+                      dash="solid" if is_sel else "dash"),
+        ))
+    fig_tp.add_vline(x=2030, line_dash="dot", line_color="#64748B", line_width=1,
+                     annotation_text="2030 · $170/t federal anchor",
+                     annotation_font=dict(size=11, color="#1E293B"),
+                     annotation_position="top left")
+    fig_tp.update_layout(
+        height=320, template="plotly_white",
+        xaxis=dict(title="Year", tickfont=dict(size=12, color="#1E293B")),
+        yaxis=dict(title="Annual Net Climate Cost (CAD $M/yr, nominal)",
+                   tickfont=dict(size=12, color="#1E293B")),
+        legend=dict(font=dict(size=12, color="#1E293B"),
+                    bgcolor="rgba(0,0,0,0)", orientation="h", y=-0.22),
+        margin=dict(t=15, b=70, l=10, r=10),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    )
+    _chart(fig_tp)
+
+    st.markdown("""
+    <div class="mbox" style="font-size:.75rem">
+      <b>What this shows:</b> the annual cash-cost profile (carbon compliance cost +
+      annualised physical expected loss, each net of asset-specific pass-through),
+      in nominal terms. The pathways share the legislated federal schedule to 2030,
+      then diverge — Net Zero 2050 climbs steeply toward CAD $345/t while Current
+      Policies plateaus. Stranded-asset and market-adjustment impacts are excluded
+      here because they are valuation (stock) adjustments rather than annual cash
+      flows; they appear in the NPV figures above. Headline NPVs discount this
+      profile at the applied WACC.
+    </div>""", unsafe_allow_html=True)
+
 
 
 # ════════════════════════════════════════════════════════════════
@@ -2421,10 +2732,17 @@ with tab5:
 # ── Footer ─────────────────────────────────────────────────────────────────────
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(f"""
-<div style="text-align:center;padding:.9rem 0;border-top:1px solid #E2E8F0;
-            font-size:.73rem;color:var(--text-muted)">
-  TC Energy Corporation (TSX/NYSE: TRP) — Climate Risk Stress Terminal v5.0 &nbsp;|&nbsp;
-  Source: TC Energy 2024 Sustainability Report &amp; ESG Data Sheet &nbsp;|&nbsp;
-  Live FX: {FX:.4f} CAD &nbsp;|&nbsp;
-  {MKT['ts']} &nbsp;|&nbsp; TCFD / IFRS S2 Aligned
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+            padding:.9rem 0;border-top:1px solid var(--border);
+            font-size:.7rem;color:var(--text-muted)">
+  <div style="font-family:'JetBrains Mono',monospace">
+    <b style="color:var(--text-sec)">{APP_NAME}</b> {APP_VER}
+    &nbsp;·&nbsp; engine build {MKT['ts']}
+    &nbsp;·&nbsp; © 2026 {APP_ORG}
+  </div>
+  <div>
+    Workspace: TC Energy (TRP) — public disclosures &nbsp;·&nbsp;
+    Live FX {FX:.4f} CAD &nbsp;·&nbsp; TCFD / IFRS S2 aligned &nbsp;·&nbsp;
+    Not investment advice
+  </div>
 </div>""", unsafe_allow_html=True)
