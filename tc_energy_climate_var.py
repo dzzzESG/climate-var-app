@@ -17,7 +17,7 @@ v5.0 highlights:
     company is the loaded workspace. Product wordmark + version badge,
     breadcrumb top bar with live state chips, JetBrains Mono tabular
     numerals on all metrics, hover micro-interactions, product footer.
-    Rebrand via APP_NAME / APP_TAGLINE / APP_VER / APP_ORG constants.
+    Rebrand via APP_NAME / APP_TAGLINE / APP_VER constants.
 
 Install: pip install streamlit plotly pandas numpy yfinance reportlab
 Run:     streamlit run tc_energy_stress_terminal.py
@@ -52,7 +52,6 @@ def _df(df, **kw):
 APP_NAME    = "ClimaVaR Terminal"
 APP_TAGLINE = "Climate Risk Analytics Platform"
 APP_VER     = "v5.2"
-APP_ORG     = "DSTA Advisory"
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -2738,7 +2737,6 @@ st.markdown(f"""
   <div style="font-family:'JetBrains Mono',monospace">
     <b style="color:var(--text-sec)">{APP_NAME}</b> {APP_VER}
     &nbsp;·&nbsp; engine build {MKT['ts']}
-    &nbsp;·&nbsp; © 2026 {APP_ORG}
   </div>
   <div>
     Workspace: TC Energy (TRP) — public disclosures &nbsp;·&nbsp;
